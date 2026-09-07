@@ -19,24 +19,6 @@
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans h-screen flex overflow-hidden">
 
-    <!-- Firebase Setup Modal (Only shows if config is missing, e.g., on GitHub Pages) -->
-    <div id="setup-modal" class="hidden fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-8 relative">
-            <h2 class="text-3xl font-bold text-slate-900 mb-4">🚀 Setup Cloud Storage</h2>
-            <p class="text-slate-600 mb-6">
-                You are running this on a custom host (like GitHub Pages). To enable cloud accounts and save shelves, you need to add your free Firebase configuration.
-            </p>
-            <div class="bg-slate-100 p-4 rounded-lg mb-6 text-sm text-slate-700 space-y-2">
-                <p>1. Go to <a href="https://console.firebase.google.com/" target="_blank" class="text-blue-600 hover:underline font-bold">Firebase Console</a> and create a free project.</p>
-                <p>2. Add a "Web App" to your project.</p>
-                <p>3. Enable "Authentication" (Anonymous) and "Firestore Database".</p>
-                <p>4. Open this <code>index.html</code> file in a text editor.</p>
-                <p>5. Find <code>GITHUB_PAGES_FIREBASE_CONFIG</code> near line 170 and paste your config details there.</p>
-            </div>
-            <p class="text-xs text-slate-500">Refresh the page once you've updated the file.</p>
-        </div>
-    </div>
-
     <!-- Sidebar Navigation -->
     <aside class="w-64 bg-white border-r border-slate-200 flex flex-col h-full shadow-sm relative z-10 transition-all duration-300" id="sidebar">
         <div class="p-6 border-b border-slate-100">
@@ -44,7 +26,7 @@
                 <i class="fa-solid fa-book-open-reader"></i> OmniShelf
             </h1>
             <p class="text-xs text-slate-400 mt-2 flex items-center gap-1">
-                <i class="fa-solid fa-cloud text-indigo-400"></i> <span id="user-id-display">Connecting...</span>
+                <i class="fa-solid fa-hard-drive text-indigo-400"></i> <span id="user-id-display">Local Storage Active</span>
             </p>
         </div>
 
@@ -135,39 +117,7 @@
     </main>
 
     <!-- Scripts -->
-    <script type="module">
-        // --- FIREBASE SETUP ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // ============================================================================
-        // GITHUB PAGES USERS: PASTE YOUR FIREBASE CONFIG HERE
-        // ============================================================================
-        const GITHUB_PAGES_FIREBASE_CONFIG = {
-            // apiKey: "YOUR_API_KEY",
-            // authDomain: "YOUR_PROJECT.firebaseapp.com",
-            // projectId: "YOUR_PROJECT",
-            // storageBucket: "YOUR_PROJECT.appspot.com",
-            // messagingSenderId: "YOUR_SENDER_ID",
-            // appId: "YOUR_APP_ID"
-        };
-        // ============================================================================
-
-        let firebaseConfig = null;
-        let isSetupMode = false;
-
-        if (typeof __firebase_config !== 'undefined') {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } else if (GITHUB_PAGES_FIREBASE_CONFIG.apiKey) {
-            firebaseConfig = GITHUB_PAGES_FIREBASE_CONFIG;
-        } else {
-            isSetupMode = true;
-            document.getElementById('setup-modal').classList.remove('hidden');
-        }
-
-        let app, auth, db, appId, currentUser = null;
-        
+    <script>
         // --- APP STATE ---
         let state = {
             currentView: 'search', // 'search' or shelfId
@@ -176,182 +126,111 @@
             searchResults: []
         };
 
+        // --- LOCAL STORAGE HELPERS ---
+        function loadData() {
+            const data = localStorage.getItem('omnishelf_data');
+            if (data) {
+                const parsed = JSON.parse(data);
+                state.shelves = parsed.shelves || [];
+                state.myBooks = parsed.myBooks || [];
+            } else {
+                createDefaultShelves();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('omnishelf_data', JSON.stringify({
+                shelves: state.shelves,
+                myBooks: state.myBooks
+            }));
+            renderSidebar();
+            renderUI();
+        }
+
+        function createDefaultShelves() {
+            state.shelves = [
+                { id: 'want-to-read', name: 'Want to Read', createdAt: Date.now() },
+                { id: 'read', name: 'Have Read', createdAt: Date.now() + 1 }
+            ];
+            saveData();
+        }
+
         // Make functions globally available for inline HTML event handlers
         window.setGlobalView = (view) => {
             state.currentView = view;
             renderUI();
         };
 
-        if (!isSetupMode) {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'omnishelf-default';
-
-            initApp();
-        }
-
-        async function initApp() {
-            // 1. Authenticate FIRST
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Auth error:", err);
-                alert("Failed to connect to cloud.");
-            }
-
-            // 2. Listen to Auth State
-            onAuthStateChanged(auth, (user) => {
-                currentUser = user;
-                if (user) {
-                    document.getElementById('user-id-display').innerHTML = `<span class="truncate block w-32" title="${user.uid}">ID: ${user.uid.substring(0,8)}...</span>`;
-                    setupRealtimeListeners(user.uid);
-                }
-            });
-        }
-
-        // --- DATABASE OPERATIONS ---
-        let unsubShelves = null;
-        let unsubBooks = null;
-
-        function setupRealtimeListeners(uid) {
-            // RULE 1 Strict Paths: collection(db, 'artifacts', appId, 'users', uid, 'collectionName')
-            const shelvesRef = collection(db, 'artifacts', appId, 'users', uid, 'shelves');
-            const booksRef = collection(db, 'artifacts', appId, 'users', uid, 'books');
-
-            // Listen to Shelves
-            unsubShelves = onSnapshot(shelvesRef, (snapshot) => {
-                const fetchedShelves = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // Sort by creation time
-                fetchedShelves.sort((a, b) => a.createdAt - b.createdAt);
-                
-                state.shelves = fetchedShelves;
-                
-                // Auto-create default shelves if empty
-                if (fetchedShelves.length === 0) {
-                    createDefaultShelves(uid);
-                }
-                
-                renderSidebar();
-                renderUI();
-            }, (error) => console.error("Shelves error:", error));
-
-            // Listen to Books
-            // RULE 2: No complex queries. Fetch all, filter in memory.
-            unsubBooks = onSnapshot(booksRef, (snapshot) => {
-                state.myBooks = snapshot.docs.map(doc => ({ dbId: doc.id, ...doc.data() }));
-                renderUI();
-            }, (error) => console.error("Books error:", error));
-        }
-
-        async function createDefaultShelves(uid) {
-            const defaults = [
-                { id: 'want-to-read', name: 'Want to Read' },
-                { id: 'read', name: 'Have Read' }
-            ];
-            
-            for (let i = 0; i < defaults.length; i++) {
-                const shelf = defaults[i];
-                const shelfRef = doc(db, 'artifacts', appId, 'users', uid, 'shelves', shelf.id);
-                await setDoc(shelfRef, { name: shelf.name, createdAt: Date.now() + i });
-            }
+        // Initialize App
+        function initApp() {
+            loadData();
+            renderSidebar();
+            renderUI();
         }
 
         // Add Shelf Handler
-        document.getElementById('add-shelf-form').addEventListener('submit', async (e) => {
+        document.getElementById('add-shelf-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            if (!currentUser) return;
-            
             const input = document.getElementById('new-shelf-name');
             const name = input.value.trim();
             if (!name) return;
 
             const id = 'shelf_' + Date.now();
-            const shelfRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'shelves', id);
-            
-            try {
-                await setDoc(shelfRef, { name: name, createdAt: Date.now() });
-                input.value = '';
-            } catch (err) {
-                console.error("Error adding shelf:", err);
-            }
+            state.shelves.push({ id, name, createdAt: Date.now() });
+            saveData();
+            input.value = '';
         });
 
         // Add / Move Book
-        window.saveBookToShelf = async (bookDataStr, shelfId) => {
-            if (!currentUser) return;
+        window.saveBookToShelf = (bookDataStr, shelfId) => {
             if (!shelfId) return; // if they selected the placeholder
 
             const bookData = JSON.parse(decodeURIComponent(bookDataStr));
             
-            // Generate a unique ID based on book ID and shelf to allow same book in multiple shelves if they want, 
-            // or just use book ID to limit 1 instance per library. Let's limit 1 instance in library for simplicity.
-            const dbDocId = bookData.id; 
-            const bookRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'books', dbDocId);
-
-            try {
-                // This acts as both add and update (move)
-                await setDoc(bookRef, {
+            // Check if book exists
+            const existingIndex = state.myBooks.findIndex(b => b.id === bookData.id);
+            if (existingIndex >= 0) {
+                state.myBooks[existingIndex].shelfId = shelfId;
+                state.myBooks[existingIndex].updatedAt = Date.now();
+            } else {
+                state.myBooks.push({
                     ...bookData,
                     shelfId: shelfId,
+                    dbId: bookData.id, // Keep dbId for compatibility with removeBook
                     updatedAt: Date.now()
                 });
-                
-                // Visual feedback (optional but nice)
-                const selectEl = document.getElementById(`select-${bookData.id}`);
-                if(selectEl) {
-                    const originalBg = selectEl.className;
-                    selectEl.classList.add('bg-green-100', 'text-green-800');
-                    setTimeout(() => {
-                        selectEl.classList.remove('bg-green-100', 'text-green-800');
-                    }, 1000);
-                }
+            }
+            
+            saveData();
 
-            } catch (err) {
-                console.error("Error saving book:", err);
+            // Visual feedback
+            const selectEl = document.getElementById(`select-${bookData.id}`);
+            if(selectEl) {
+                selectEl.classList.add('bg-green-100', 'text-green-800');
+                setTimeout(() => {
+                    selectEl.classList.remove('bg-green-100', 'text-green-800');
+                }, 1000);
             }
         };
 
         // Remove Book
-        window.removeBook = async (dbDocId) => {
-            if (!currentUser) return;
-            const bookRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'books', dbDocId);
-            try {
-                await deleteDoc(bookRef);
-            } catch (err) {
-                console.error("Error removing book:", err);
-            }
+        window.removeBook = (dbId) => {
+            state.myBooks = state.myBooks.filter(b => b.dbId !== dbId);
+            saveData();
         };
 
         // Delete Shelf
-        window.deleteShelf = async (shelfId) => {
-            if (!currentUser) return;
+        window.deleteShelf = (shelfId) => {
             if (confirm("Are you sure you want to delete this shelf? Books on this shelf will be removed.")) {
+                state.myBooks = state.myBooks.filter(b => b.shelfId !== shelfId);
+                state.shelves = state.shelves.filter(s => s.id !== shelfId);
                 
-                // First delete books in this shelf
-                const booksToDelete = state.myBooks.filter(b => b.shelfId === shelfId);
-                for(let b of booksToDelete) {
-                    await window.removeBook(b.dbId);
+                if(state.currentView === shelfId) {
+                    state.currentView = 'search';
                 }
-
-                // Delete shelf
-                const shelfRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'shelves', shelfId);
-                try {
-                    await deleteDoc(shelfRef);
-                    if(state.currentView === shelfId) {
-                        window.setGlobalView('search');
-                    }
-                } catch (err) {
-                    console.error("Error deleting shelf:", err);
-                }
+                saveData();
             }
         };
-
 
         // --- SEARCH API (Google Books) ---
         document.getElementById('search-form').addEventListener('submit', async (e) => {
@@ -363,7 +242,6 @@
             document.getElementById('search-loading').classList.remove('hidden');
 
             try {
-                // Using Google Books API - No API key required for basic public searches
                 const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=40`);
                 const data = await response.json();
                 
@@ -384,14 +262,15 @@
             }
         });
 
-
         // --- RENDERING UI ---
-
         function renderSidebar() {
             const container = document.getElementById('shelves-container');
             container.innerHTML = '';
 
-            state.shelves.forEach(shelf => {
+            // Sort shelves by createdAt
+            const sortedShelves = [...state.shelves].sort((a, b) => a.createdAt - b.createdAt);
+
+            sortedShelves.forEach(shelf => {
                 const li = document.createElement('li');
                 li.className = 'group relative';
                 
@@ -527,6 +406,8 @@
             return div;
         }
 
+        // Boot the app
+        initApp();
     </script>
 </body>
 </html>
