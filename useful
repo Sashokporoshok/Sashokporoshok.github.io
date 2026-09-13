@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Web Utilities</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gray-100 */
+        }
+        
+        /* Hide sections by default */
+        .tool-section {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        /* Show active section */
+        .tool-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Active nav styling */
+        .nav-btn.active {
+            background-color: #e5e7eb; /* Gray-200 */
+            color: #111827; /* Gray-900 */
+            font-weight: 600;
+            border-left: 4px solid #22c55e; /* Brand color */
+        }
+
+        /* Mobile nav active state */
+        @media (max-width: 768px) {
+            .nav-btn.active {
+                border-left: none;
+                border-bottom: 4px solid #22c55e;
+                background-color: transparent;
+            }
+        }
+        
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #22c55e;
+            cursor: pointer;
+            margin-top: -8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #d1d5db;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased h-screen flex overflow-hidden">
+
+    <!-- Navigation Container -->
+    <nav class="bg-white border-r border-gray-200 w-64 hidden md:flex flex-col shadow-sm z-10">
+        <div class="p-6">
+            <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                WebUtils
+            </h1>
+        </div>
+        <div class="flex-1 px-4 space-y-2">
+            <button onclick="switchTab('password-gen')" class="nav-btn active w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                Password Gen
+            </button>
+            <button onclick="switchTab('text-analyzer')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Text Analyzer
+            </button>
+            <button onclick="switchTab('color-picker')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+                Color Picker
+            </button>
+        </div>
+        <div class="p-4 text-xs text-center text-gray-400">
+            Created for GitHub Pages
+        </div>
+    </nav>
+
+    <!-- Mobile Bottom Nav -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 flex justify-around">
+        <button onclick="switchTab('password-gen')" class="nav-btn active flex-1 flex flex-col items-center py-3 text-gray-500 hover:text-brand-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+            <span class="text-[10px] font-medium">Passwords</span>
+        </button>
+        <button onclick="switchTab('text-analyzer')" class="nav-btn flex-1 flex flex-col items-center py-3 text-gray-500 hover:text-brand-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span class="text-[10px] font-medium">Text</span>
+        </button>
+        <button onclick="switchTab('color-picker')" class="nav-btn flex-1 flex flex-col items-center py-3 text-gray-500 hover:text-brand-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+            <span class="text-[10px] font-medium">Colors</span>
+        </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+        
+        <!-- Mobile Header (Hidden on Desktop) -->
+        <header class="md:hidden mb-6 flex items-center justify-between">
+            <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                WebUtils
+            </h1>
+        </header>
+
+        <div class="max-w-3xl mx-auto">
+            
+            <!-- Tool 1: Password Generator -->
+            <section id="password-gen" class="tool-section active">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Password Generator</h2>
+                    <p class="text-gray-500 mb-6 text-sm">Create strong and secure passwords instantly.</p>
+
+                    <!-- Generated Password Display -->
+                    <div class="relative mb-6">
+                        <input type="text" id="pw-result" readonly 
+                            class="w-full bg-gray-50 border border-gray-200 text-gray-800 font-mono text-xl p-4 rounded-xl pr-24 focus:outline-none focus:ring-2 focus:ring-brand-500" 
+                            placeholder="Generate a password...">
+                        <button onclick="copyPassword()" id="pw-copy-btn" class="absolute right-2 top-2 bottom-2 bg-brand-100 hover:bg-brand-200 text-brand-700 px-4 rounded-lg font-medium transition-colors flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            <span class="hidden sm:inline" id="pw-copy-text">Copy</span>
+                        </button>
+                    </div>
+
+                    <!-- Password Length -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="font-medium text-gray-700">Password Length</label>
+                            <span id="pw-length-val" class="text-xl font-bold text-brand-600">16</span>
+                        </div>
+                        <input type="range" id="pw-length" min="8" max="64" value="16" oninput="updatePwLength(this.value)">
+                    </div>
+
+                    <!-- Options -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" id="pw-uppercase" checked class="w-5 h-5 text-brand-500 rounded focus:ring-brand-500">
+                            <span class="text-gray-700">Uppercase (A-Z)</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" id="pw-lowercase" checked class="w-5 h-5 text-brand-500 rounded focus:ring-brand-500">
+                            <span class="text-gray-700">Lowercase (a-z)</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" id="pw-numbers" checked class="w-5 h-5 text-brand-500 rounded focus:ring-brand-500">
+                            <span class="text-gray-700">Numbers (0-9)</span>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" id="pw-symbols" checked class="w-5 h-5 text-brand-500 rounded focus:ring-brand-500">
+                            <span class="text-gray-700">Symbols (!@#$...)</span>
+                        </label>
+                    </div>
+
+                    <button onclick="generatePassword()" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Generate New Password
+                    </button>
+                </div>
+            </section>
+
+            <!-- Tool 2: Text Analyzer -->
+            <section id="text-analyzer" class="tool-section">
+                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Text Analyzer</h2>
+                    <p class="text-gray-500 mb-6 text-sm">Count words, characters, and sentences in real-time.</p>
+
+                    <!-- Stats Row -->
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="bg-blue-50 p-4 rounded-xl text-center">
+                            <div id="word-count" class="text-3xl font-bold text-blue-600">0</div>
+                            <div class="text-xs text-blue-800 uppercase font-semibold mt-1">Words</div>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-xl text-center">
+                            <div id="char-count" class="text-3xl font-bold text-purple-600">0</div>
+                            <div class="text-xs text-purple-800 uppercase font-semibold mt-1">Characters</div>
+                        </div>
+                        <div class="bg-amber-50 p-4 rounded-xl text-center">
+                            <div id="sentence-count" class="text-3xl font-bold text-amber-600">0</div>
+                            <div class="text-xs text-amber-800 uppercase font-semibold mt-1">Sentences</div>
+                        </div>
+                    </div>
+
+                    <!-- Text Area -->
+                    <textarea id="text-input" oninput="analyzeText()" class="w-full h-64 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y text-gray-700" placeholder="Type or paste your text here to begin analyzing..."></textarea>
+                    
+                    <div class="flex justify-between items-center mt-4">
+                        <button onclick="clearText()" class="text-gray-500 hover:text-red-500 text-sm font-medium transition-colors flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Clear Text
+                        </button>
+                        <div class="text-xs text-gray-400" id="reading-time">Reading time: 0 min</div>
+                    </div>
+                 </div>
+            </section>
+
+            <!-- Tool 3: Color Picker -->
+            <section id="color-picker" class="tool-section">
+                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Color Picker</h2>
+                    <p class="text-gray-500 mb-6 text-sm">Select a color to get its HEX and RGB values.</p>
+
+                    <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
+                        <!-- Color Input Container -->
+                        <div class="w-full md:w-1/2 flex flex-col items-center justify-center">
+                            <div class="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-100 shadow-lg cursor-pointer" onclick="document.getElementById('html-color-picker').click()">
+                                <input type="color" id="html-color-picker" value="#3b82f6" oninput="updateColorDetails(this.value)" class="absolute inset-0 w-full h-full p-0 border-0 opacity-0 cursor-pointer">
+                                <!-- Visible color preview -->
+                                <div id="color-preview" class="w-full h-full bg-blue-500"></div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-4">Click circle to pick color</p>
+                        </div>
+
+                        <!-- Color Details -->
+                        <div class="w-full md:w-1/2 space-y-6">
+                            
+                            <!-- HEX Value -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">HEX Code</label>
+                                <div class="relative">
+                                    <input type="text" id="hex-value" readonly class="w-full bg-gray-50 border border-gray-200 text-gray-800 font-mono p-3 rounded-lg pr-20 focus:outline-none" value="#3b82f6">
+                                    <button onclick="copyToClipboard('hex-value', 'hex-btn')" id="hex-btn" class="absolute right-1 top-1 bottom-1 bg-white hover:bg-gray-100 border border-gray-200 text-gray-600 px-3 rounded text-sm font-medium transition-colors">
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- RGB Value -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">RGB Value</label>
+                                <div class="relative">
+                                    <input type="text" id="rgb-value" readonly class="w-full bg-gray-50 border border-gray-200 text-gray-800 font-mono p-3 rounded-lg pr-20 focus:outline-none" value="rgb(59, 130, 246)">
+                                    <button onclick="copyToClipboard('rgb-value', 'rgb-btn')" id="rgb-btn" class="absolute right-1 top-1 bottom-1 bg-white hover:bg-gray-100 border border-gray-200 text-gray-600 px-3 rounded text-sm font-medium transition-colors">
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+            </section>
+        </div>
+        
+        <!-- Toast Notification Container -->
+        <div id="toast" class="fixed bottom-24 md:bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-50">
+            Copied to clipboard!
+        </div>
+
+    </main>
+
+    <script>
+        // --- 1. Navigation Logic ---
+        function switchTab(tabId) {
+            // Hide all sections
+            document.querySelectorAll('.tool-section').forEach(sec => {
+                sec.classList.remove('active');
+            });
+            // Show target section
+            document.getElementById(tabId).classList.add('active');
+
+            // Update nav buttons active state
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+                // Check if button's onclick attribute contains the tabId
+                if(btn.getAttribute('onclick').includes(tabId)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // --- 2. Toast Notification Logic ---
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 2000);
+        }
+
+        function fallbackCopyTextToClipboard(text, btnId) {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Avoid scrolling to bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                var successful = document.execCommand('copy');
+                if(successful) {
+                    showToast('Copied to clipboard!');
+                    temporarilyChangeButtonText(btnId);
+                }
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        function copyToClipboard(inputId, btnId) {
+            const input = document.getElementById(inputId);
+            const textToCopy = input.value;
+            
+            if (!textToCopy) return;
+
+            // Try modern clipboard API first
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showToast('Copied to clipboard!');
+                    temporarilyChangeButtonText(btnId);
+                }).catch(err => {
+                    // Fallback for iFrames or non-secure contexts
+                    fallbackCopyTextToClipboard(textToCopy, btnId);
+                });
+            } else {
+                // Fallback for iFrames or non-secure contexts
+                fallbackCopyTextToClipboard(textToCopy, btnId);
+            }
+        }
+
+        function temporarilyChangeButtonText(btnId) {
+            if(!btnId) return;
+            const btn = document.getElementById(btnId);
+            // Handle specifically the password copy button which has an inner span
+            if(btnId === 'pw-copy-btn') {
+               const textSpan = document.getElementById('pw-copy-text');
+               if(textSpan) {
+                   const originalText = textSpan.innerText;
+                   textSpan.innerText = 'Copied!';
+                   setTimeout(() => { textSpan.innerText = originalText; }, 2000);
+               }
+            } else {
+                const originalText = btn.innerText;
+                btn.innerText = 'Copied!';
+                setTimeout(() => { btn.innerText = originalText; }, 2000);
+            }
+        }
+
+
+        // --- 3. Password Generator Logic ---
+        function updatePwLength(val) {
+            document.getElementById('pw-length-val').innerText = val;
+        }
+
+        function generatePassword() {
+            const length = document.getElementById('pw-length').value;
+            const incUpper = document.getElementById('pw-uppercase').checked;
+            const incLower = document.getElementById('pw-lowercase').checked;
+            const incNum = document.getElementById('pw-numbers').checked;
+            const incSym = document.getElementById('pw-symbols').checked;
+
+            const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            const lowerChars = "abcdefghijklmnopqrstuvwxyz";
+            const numChars = "0123456789";
+            const symChars = "!@#$%^&*()_+~`|}{[]:;?><,./-=";
+
+            let charSet = "";
+            if (incUpper) charSet += upperChars;
+            if (incLower) charSet += lowerChars;
+            if (incNum) charSet += numChars;
+            if (incSym) charSet += symChars;
+
+            const resultInput = document.getElementById('pw-result');
+
+            if (charSet === "") {
+                resultInput.value = "Select at least one option!";
+                return;
+            }
+
+            let password = "";
+            for (let i = 0; i < length; i++) {
+                const randomIndex = Math.floor(Math.random() * charSet.length);
+                password += charSet[randomIndex];
+            }
+
+            resultInput.value = password;
+        }
+
+        function copyPassword() {
+            copyToClipboard('pw-result', 'pw-copy-btn');
+        }
+
+
+        // --- 4. Text Analyzer Logic ---
+        function analyzeText() {
+            const text = document.getElementById('text-input').value;
+            
+            // Characters
+            const charCount = text.length;
+            
+            // Words (filter out empty strings caused by multiple spaces)
+            const words = text.trim().split(/\s+/);
+            const wordCount = text.trim() === '' ? 0 : words.length;
+            
+            // Sentences (split by ., !, or ? followed by space or end of string)
+            const sentences = text.split(/[.!?]+(?:\s+|$)/).filter(s => s.trim().length > 0);
+            const sentenceCount = text.trim() === '' ? 0 : sentences.length;
+
+            // Reading time (avg 200 words per min)
+            const readingTimeMins = Math.ceil(wordCount / 200);
+
+            // Update UI
+            document.getElementById('char-count').innerText = charCount;
+            document.getElementById('word-count').innerText = wordCount;
+            document.getElementById('sentence-count').innerText = sentenceCount;
+            
+            if (wordCount > 0) {
+                 document.getElementById('reading-time').innerText = `Est. reading time: ~${readingTimeMins} min`;
+            } else {
+                 document.getElementById('reading-time').innerText = `Reading time: 0 min`;
+            }
+        }
+
+        function clearText() {
+            document.getElementById('text-input').value = '';
+            analyzeText();
+        }
+
+
+        // --- 5. Color Picker Logic ---
+        function hexToRgb(hex) {
+            // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+            var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+            hex = hex.replace(shorthandRegex, function(m, r, g, b) {
+                return r + r + g + g + b + b;
+            });
+
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function updateColorDetails(hexValue) {
+            // Update preview div color
+            document.getElementById('color-preview').style.backgroundColor = hexValue;
+            
+            // Update HEX input
+            document.getElementById('hex-value').value = hexValue.toUpperCase();
+            
+            // Calculate and update RGB input
+            const rgb = hexToRgb(hexValue);
+            if (rgb) {
+                document.getElementById('rgb-value').value = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            generatePassword(); // Generate initial password
+            updateColorDetails('#3b82f6'); // Init color picker UI
+        };
+
+    </script>
+</body>
+</html>
