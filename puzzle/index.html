@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sliding Puzzle Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Import Google Font */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+        body {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* Prevent scrolling */
+            touch-action: none; /* Prevent pinch zoom etc on mobile */
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 8px;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+            width: 90vw;
+            max-width: 400px;
+            aspect-ratio: 1 / 1;
+        }
+
+        .tile {
+            background-color: #f8fafc;
+            color: #1e293b;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 800;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.15s ease-in-out, background-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            position: relative; /* For z-index during animation */
+            /* Default position if CSS grid doesn't load fast enough */
+            grid-column: span 1;
+            grid-row: span 1;
+        }
+
+        .tile:hover:not(.empty) {
+            transform: scale(0.95);
+            background-color: #e2e8f0;
+        }
+
+        .tile:active:not(.empty) {
+            transform: scale(0.9);
+        }
+
+        .empty {
+            background-color: transparent;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            cursor: default;
+            color: transparent;
+        }
+
+        .btn {
+            background: #f59e0b; /* Amber 500 */
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 9999px; /* Pill shape */
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            margin-top: 2rem;
+        }
+
+        .btn:hover {
+            background: #d97706; /* Amber 600 */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        #win-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        #win-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 40px;
+            border-radius: 24px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: scale(0.8);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #win-modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-500 drop-shadow-lg">
+        SLIDING PUZZLE
+    </h1>
+    <p class="mb-6 text-blue-100 text-sm md:text-base font-semibold">Moves: <span id="move-count" class="text-white">0</span></p>
+
+    <div id="game-board">
+        <!-- Tiles will be injected here by JavaScript -->
+    </div>
+
+    <button id="shuffle-btn" class="btn">
+        Shuffle Board
+    </button>
+
+    <div id="win-modal">
+        <div class="modal-content">
+            <h2 class="text-4xl font-black text-white mb-4 drop-shadow-md">YOU WON!</h2>
+            <p class="text-green-100 mb-6 text-lg">Completed in <span id="final-moves" class="font-bold text-white">0</span> moves.</p>
+            <button id="play-again-btn" class="btn bg-white text-green-700 hover:bg-gray-100">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const boardSize = 4; // 4x4 grid
+        const numTiles = boardSize * boardSize;
+        let tiles = []; // Array to hold current state (1-15, and 0 for empty)
+        let moveCount = 0;
+        let isAnimating = false; // Prevent moves while another is animating
+
+        const gameBoard = document.getElementById('game-board');
+        const moveCountEl = document.getElementById('move-count');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+        const winModal = document.getElementById('win-modal');
+        const finalMovesEl = document.getElementById('final-moves');
+        const playAgainBtn = document.getElementById('play-again-btn');
+
+        // Initialize the game state in solved order
+        function initGame() {
+            tiles = [];
+            for (let i = 1; i < numTiles; i++) {
+                tiles.push(i);
+            }
+            tiles.push(0); // 0 represents the empty space
+            moveCount = 0;
+            updateMoveCount();
+            renderBoard();
+        }
+
+        // Render the HTML for the current state of the tiles array
+        function renderBoard() {
+            gameBoard.innerHTML = '';
+            
+            tiles.forEach((value, index) => {
+                const tileEl = document.createElement('div');
+                tileEl.classList.add('tile');
+                
+                // Set grid coordinates for visual positioning
+                const row = Math.floor(index / boardSize);
+                const col = index % boardSize;
+                
+                // Using CSS Grid lines (1-indexed)
+                tileEl.style.gridRow = `${row + 1}`;
+                tileEl.style.gridColumn = `${col + 1}`;
+                tileEl.dataset.index = index;
+
+                if (value === 0) {
+                    tileEl.classList.add('empty');
+                    tileEl.textContent = '';
+                } else {
+                    tileEl.textContent = value;
+                    // Add touch/click listener
+                    tileEl.addEventListener('click', () => handleTileClick(index));
+                    // Touch events for mobile responsiveness
+                    tileEl.addEventListener('touchstart', (e) => {
+                        e.preventDefault(); // Prevent double firing on some devices
+                        handleTileClick(index);
+                    }, {passive: false});
+                }
+                
+                gameBoard.appendChild(tileEl);
+            });
+        }
+
+        // Check if a tile can move and move it
+        function handleTileClick(clickedIndex) {
+            if (isAnimating) return;
+
+            const emptyIndex = tiles.indexOf(0);
+            
+            if (isAdjacent(clickedIndex, emptyIndex)) {
+                moveTile(clickedIndex, emptyIndex);
+            }
+        }
+
+        // Determine if two grid indices are next to each other (not diagonally)
+        function isAdjacent(index1, index2) {
+            const row1 = Math.floor(index1 / boardSize);
+            const col1 = index1 % boardSize;
+            const row2 = Math.floor(index2 / boardSize);
+            const col2 = index2 % boardSize;
+
+            const rowDiff = Math.abs(row1 - row2);
+            const colDiff = Math.abs(col1 - col2);
+
+            return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+        }
+
+        // Perform the visual and logical move
+        function moveTile(clickedIndex, emptyIndex) {
+            isAnimating = true;
+            
+            // 1. Get the DOM elements
+            const clickedTileEl = gameBoard.querySelector(`.tile[data-index="${clickedIndex}"]`);
+            const emptyTileEl = gameBoard.querySelector(`.tile[data-index="${emptyIndex}"]`);
+
+            // 2. Calculate physical distance to move for CSS translation
+            const cRect = clickedTileEl.getBoundingClientRect();
+            const eRect = emptyTileEl.getBoundingClientRect();
+            const dx = eRect.left - cRect.left;
+            const dy = eRect.top - cRect.top;
+
+            // 3. Apply CSS transition to the clicked tile
+            clickedTileEl.style.zIndex = '10'; // Bring to front during move
+            clickedTileEl.style.transform = `translate(${dx}px, ${dy}px)`;
+
+            // 4. Update logical array state
+            [tiles[clickedIndex], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[clickedIndex]];
+            
+            moveCount++;
+            updateMoveCount();
+
+            // 5. Wait for transition, then re-render grid
+            setTimeout(() => {
+                clickedTileEl.style.transform = '';
+                clickedTileEl.style.zIndex = '';
+                renderBoard();
+                isAnimating = false;
+                checkWinCondition();
+            }, 150); // Matches the CSS transition duration
+        }
+
+        function updateMoveCount() {
+            moveCountEl.textContent = moveCount;
+        }
+
+        // Check if current array matches [1, 2, 3, ... , 15, 0]
+        function checkWinCondition() {
+            let isWin = true;
+            for (let i = 0; i < numTiles - 1; i++) {
+                if (tiles[i] !== i + 1) {
+                    isWin = false;
+                    break;
+                }
+            }
+            // Ensure last tile is empty (0)
+            if (isWin && tiles[numTiles - 1] === 0) {
+                showWinScreen();
+            }
+        }
+
+        function showWinScreen() {
+            finalMovesEl.textContent = moveCount;
+            winModal.classList.add('active');
+            createConfetti();
+        }
+
+        // Shuffle logic (Ensure it's solvable by simulating valid moves)
+        function shuffleBoard() {
+            if (isAnimating) return;
+            winModal.classList.remove('active');
+            
+            // A simple way to guarantee a solvable board is to make many random valid moves.
+            // Rather than randomizing the array and checking parity.
+            let emptyIndex = tiles.indexOf(0);
+            const shuffleMoves = 100; // Number of random moves to scramble
+            
+            for (let i = 0; i < shuffleMoves; i++) {
+                const neighbors = getValidNeighbors(emptyIndex);
+                const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                
+                // Swap in array
+                [tiles[emptyIndex], tiles[randomNeighbor]] = [tiles[randomNeighbor], tiles[emptyIndex]];
+                emptyIndex = randomNeighbor;
+            }
+            
+            moveCount = 0;
+            updateMoveCount();
+            renderBoard();
+        }
+
+        // Helper for shuffle: Get valid indices adjacent to the empty space
+        function getValidNeighbors(emptyIdx) {
+            const row = Math.floor(emptyIdx / boardSize);
+            const col = emptyIdx % boardSize;
+            const neighbors = [];
+
+            if (row > 0) neighbors.push(emptyIdx - boardSize); // Up
+            if (row < boardSize - 1) neighbors.push(emptyIdx + boardSize); // Down
+            if (col > 0) neighbors.push(emptyIdx - 1); // Left
+            if (col < boardSize - 1) neighbors.push(emptyIdx + 1); // Right
+
+            return neighbors;
+        }
+
+        // Keyboard support
+        window.addEventListener('keydown', (e) => {
+            if (isAnimating || winModal.classList.contains('active')) return;
+            
+            const emptyIndex = tiles.indexOf(0);
+            const row = Math.floor(emptyIndex / boardSize);
+            const col = emptyIndex % boardSize;
+            let targetIndex = -1;
+
+            // Note: Arrow keys move the *tile*, not the empty space. 
+            // So if user presses ArrowUp, a tile BELOW the empty space moves UP into it.
+            if (e.key === 'ArrowUp' && row < boardSize - 1) {
+                targetIndex = emptyIndex + boardSize; // Tile below moves up
+            } else if (e.key === 'ArrowDown' && row > 0) {
+                targetIndex = emptyIndex - boardSize; // Tile above moves down
+            } else if (e.key === 'ArrowLeft' && col < boardSize - 1) {
+                targetIndex = emptyIndex + 1; // Tile right moves left
+            } else if (e.key === 'ArrowRight' && col > 0) {
+                targetIndex = emptyIndex - 1; // Tile left moves right
+            }
+
+            if (targetIndex !== -1) {
+                moveTile(targetIndex, emptyIndex);
+            }
+        });
+
+        // Basic Confetti effect for winning
+        function createConfetti() {
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = -10 + 'vh';
+                confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                confetti.style.animationDelay = (Math.random() * 2) + 's';
+                document.body.appendChild(confetti);
+                
+                // Cleanup confetti
+                setTimeout(() => {
+                    confetti.remove();
+                }, 5000);
+            }
+        }
+
+        // Bind Buttons
+        shuffleBtn.addEventListener('click', shuffleBoard);
+        playAgainBtn.addEventListener('click', () => {
+            winModal.classList.remove('active');
+            shuffleBoard();
+        });
+
+        // Start the game!
+        initGame();
+        // Automatically shuffle on first load so it's ready to play
+        setTimeout(shuffleBoard, 500); 
+
+    </script>
+</body>
+</html>
