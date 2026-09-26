@@ -1,413 +1,677 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sliding Puzzle Game</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Import Google Font */
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc,
+  doc,
+  serverTimestamp
+} from 'firebase/firestore';
+import { 
+  Folder, 
+  FolderOpen, 
+  Plus, 
+  Search, 
+  Link as LinkIcon, 
+  Sparkles, 
+  Coffee,
+  Bookmark,
+  ChevronRight,
+  Loader2,
+  Trash2,
+  AlertCircle
+} from 'lucide-react';
 
-        body {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-            color: #fff;
-            font-family: 'Poppins', sans-serif;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden; /* Prevent scrolling */
-            touch-action: none; /* Prevent pinch zoom etc on mobile */
+// Initialize Firebase
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'sofiwim-default-id';
+
+// Cozy Color Palette Constants
+const colors = {
+  bg: 'bg-[#F9F6F0]',          // Warm cream
+  sidebar: 'bg-[#EAE3D9]',     // Soft oat
+  text: 'text-[#4A3F35]',      // Deep mocha
+  textLight: 'text-[#8C6A5D]', // Soft brown
+  accent: 'bg-[#C17F59]',      // Terracotta/Warm orange
+  accentHover: 'hover:bg-[#A86B49]',
+  card: 'bg-white/70 backdrop-blur-md',
+  border: 'border-[#DBCFC0]',
+};
+
+// Helper to call Gemini API
+const callGemini = async (prompt, useSearch = true) => {
+  const apiKey = ""; // Canvas handles API key injection
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+  
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    ...(useSearch && { tools: [{ google_search: {} }] }),
+    systemInstruction: {
+      parts: [{ text: "You are a helpful, cozy, and warm AI assistant for an app called Sofiwim. Provide clear, concise, and easy-to-read information. Use a friendly tone." }]
+    }
+  };
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return result.candidates[0].content.parts[0].text;
+    }
+    throw new Error("No response from AI");
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    throw error;
+  }
+};
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [folders, setFolders] = useState([]);
+  const [items, setItems] = useState([]);
+  const [activeView, setActiveView] = useState('home'); // 'home', 'folder', 'search'
+  const [activeFolder, setActiveFolder] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Authentication Setup
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
         }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
 
-        #game-board {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(4, 1fr);
-            gap: 8px;
-            background-color: rgba(255, 255, 255, 0.2);
-            padding: 12px;
-            border-radius: 16px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
-            width: 90vw;
-            max-width: 400px;
-            aspect-ratio: 1 / 1;
-        }
+  // Fetch Folders and Items
+  useEffect(() => {
+    if (!user) return;
 
-        .tile {
-            background-color: #f8fafc;
-            color: #1e293b;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            font-weight: 800;
-            cursor: pointer;
-            user-select: none;
-            transition: transform 0.15s ease-in-out, background-color 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-            position: relative; /* For z-index during animation */
-            /* Default position if CSS grid doesn't load fast enough */
-            grid-column: span 1;
-            grid-row: span 1;
-        }
+    const foldersRef = collection(db, 'artifacts', appId, 'users', user.uid, 'folders');
+    const itemsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'items');
 
-        .tile:hover:not(.empty) {
-            transform: scale(0.95);
-            background-color: #e2e8f0;
-        }
+    const unsubFolders = onSnapshot(foldersRef, (snapshot) => {
+      const foldersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort by creation time manually as per rules (no complex queries)
+      foldersData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      setFolders(foldersData);
+    }, (error) => console.error("Error fetching folders:", error));
 
-        .tile:active:not(.empty) {
-            transform: scale(0.9);
-        }
+    const unsubItems = onSnapshot(itemsRef, (snapshot) => {
+      const itemsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      itemsData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      setItems(itemsData);
+    }, (error) => console.error("Error fetching items:", error));
 
-        .empty {
-            background-color: transparent;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
-            cursor: default;
-            color: transparent;
-        }
+    return () => {
+      unsubFolders();
+      unsubItems();
+    };
+  }, [user]);
 
-        .btn {
-            background: #f59e0b; /* Amber 500 */
-            color: white;
-            font-weight: 600;
-            padding: 12px 24px;
-            border-radius: 9999px; /* Pill shape */
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s ease;
-            cursor: pointer;
-            border: none;
-            outline: none;
-            margin-top: 2rem;
-        }
+  const handleAddFolder = async (folderName) => {
+    if (!user || !folderName.trim()) return;
+    try {
+      const foldersRef = collection(db, 'artifacts', appId, 'users', user.uid, 'folders');
+      await addDoc(foldersRef, {
+        name: folderName.trim(),
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error adding folder:", error);
+    }
+  };
 
-        .btn:hover {
-            background: #d97706; /* Amber 600 */
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.4);
-        }
+  const handleDeleteItem = async (itemId) => {
+    if (!user) return;
+    try {
+      const itemRef = doc(db, 'artifacts', appId, 'users', user.uid, 'items', itemId);
+      await deleteDoc(itemRef);
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
+  };
 
-        .btn:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setActiveView('search');
+      setActiveFolder(null);
+    } else {
+      setActiveView('home');
+    }
+  };
 
-        #win-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.4s ease;
-        }
-
-        #win-modal.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        
-        .modal-content {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            padding: 40px;
-            border-radius: 24px;
-            text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            transform: scale(0.8);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        #win-modal.active .modal-content {
-            transform: scale(1);
-        }
-
-        .confetti {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background-color: #f00;
-            animation: fall linear infinite;
-        }
-        @keyframes fall {
-            to { transform: translateY(100vh) rotate(720deg); }
-        }
-    </style>
-</head>
-<body>
-    <h1 class="text-4xl md:text-5xl font-extrabold mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-500 drop-shadow-lg">
-        SLIDING PUZZLE
-    </h1>
-    <p class="mb-6 text-blue-100 text-sm md:text-base font-semibold">Moves: <span id="move-count" class="text-white">0</span></p>
-
-    <div id="game-board">
-        <!-- Tiles will be injected here by JavaScript -->
-    </div>
-
-    <button id="shuffle-btn" class="btn">
-        Shuffle Board
-    </button>
-
-    <div id="win-modal">
-        <div class="modal-content">
-            <h2 class="text-4xl font-black text-white mb-4 drop-shadow-md">YOU WON!</h2>
-            <p class="text-green-100 mb-6 text-lg">Completed in <span id="final-moves" class="font-bold text-white">0</span> moves.</p>
-            <button id="play-again-btn" class="btn bg-white text-green-700 hover:bg-gray-100">Play Again</button>
+  if (!user) {
+    return (
+      <div className={`min-h-screen ${colors.bg} flex items-center justify-center font-sans ${colors.text}`}>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-[#C17F59]" />
+          <p className="text-lg font-medium">Warming up your cozy space...</p>
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-screen ${colors.bg} flex font-sans ${colors.text} selection:bg-[#EAE3D9] selection:text-[#4A3F35]`}>
+      
+      {/* Sidebar */}
+      <Sidebar 
+        folders={folders} 
+        activeFolder={activeFolder}
+        setActiveFolder={(id) => {
+          setActiveFolder(id);
+          setActiveView('folder');
+        }}
+        onAddFolder={handleAddFolder}
+        setActiveView={setActiveView}
+        activeView={activeView}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col max-h-screen overflow-hidden">
+        
+        {/* Top Header & Search */}
+        <header className="h-20 px-8 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4 w-full max-w-2xl">
+            <form onSubmit={handleSearchSubmit} className="relative w-full group">
+              <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${colors.textLight} group-focus-within:${colors.text} transition-colors`} />
+              <input 
+                type="text" 
+                placeholder="Search your saves, or ask the web..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full py-3 pl-12 pr-4 bg-white/50 backdrop-blur-sm border ${colors.border} rounded-2xl outline-none focus:ring-2 focus:ring-[#C17F59]/30 transition-all placeholder:text-[#8C6A5D]/60 shadow-sm`}
+              />
+            </form>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full ${colors.sidebar} flex items-center justify-center shadow-inner`}>
+              <Coffee className={`w-5 h-5 ${colors.text}`} />
+            </div>
+          </div>
+        </header>
+
+        {/* Content View Routing */}
+        <div className="flex-1 overflow-y-auto p-8 pt-4">
+          <div className="max-w-4xl mx-auto">
+            {activeView === 'home' && (
+              <URLAnalyzer user={user} folders={folders} appId={appId} db={db} />
+            )}
+            
+            {activeView === 'folder' && (
+              <FolderView 
+                folder={folders.find(f => f.id === activeFolder)} 
+                items={items.filter(item => item.folderId === activeFolder)}
+                onDelete={handleDeleteItem}
+              />
+            )}
+            
+            {activeView === 'search' && (
+              <SearchView 
+                query={searchQuery} 
+                items={items} 
+                onDelete={handleDeleteItem}
+              />
+            )}
+          </div>
+        </div>
+
+      </main>
     </div>
+  );
+}
 
-    <script>
-        const boardSize = 4; // 4x4 grid
-        const numTiles = boardSize * boardSize;
-        let tiles = []; // Array to hold current state (1-15, and 0 for empty)
-        let moveCount = 0;
-        let isAnimating = false; // Prevent moves while another is animating
+function Sidebar({ folders, activeFolder, setActiveFolder, onAddFolder, setActiveView, activeView }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
-        const gameBoard = document.getElementById('game-board');
-        const moveCountEl = document.getElementById('move-count');
-        const shuffleBtn = document.getElementById('shuffle-btn');
-        const winModal = document.getElementById('win-modal');
-        const finalMovesEl = document.getElementById('final-moves');
-        const playAgainBtn = document.getElementById('play-again-btn');
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newFolderName.trim()) {
+      onAddFolder(newFolderName);
+      setNewFolderName('');
+      setIsAdding(false);
+    }
+  };
 
-        // Initialize the game state in solved order
-        function initGame() {
-            tiles = [];
-            for (let i = 1; i < numTiles; i++) {
-                tiles.push(i);
-            }
-            tiles.push(0); // 0 represents the empty space
-            moveCount = 0;
-            updateMoveCount();
-            renderBoard();
-        }
+  return (
+    <aside className={`w-72 ${colors.sidebar} flex flex-col shadow-[4px_0_24px_rgba(92,74,61,0.06)] z-10 shrink-0`}>
+      <div className="p-6 pb-2">
+        <h1 
+          className="text-2xl font-bold flex items-center gap-2 cursor-pointer"
+          onClick={() => { setActiveView('home'); setActiveFolder(null); }}
+        >
+          <Sparkles className={`w-6 h-6 ${colors.accent.replace('bg-', 'text-')}`} />
+          Sofiwim
+        </h1>
+        <p className={`text-sm mt-1 ${colors.textLight}`}>Your cozy knowledge corner</p>
+      </div>
 
-        // Render the HTML for the current state of the tiles array
-        function renderBoard() {
-            gameBoard.innerHTML = '';
+      <div className="p-4 flex-1 overflow-y-auto">
+        <div className="space-y-1">
+          <button 
+            onClick={() => { setActiveView('home'); setActiveFolder(null); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${activeView === 'home' ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+          >
+            <LinkIcon className="w-5 h-5" />
+            <span className="font-medium">Analyze URL</span>
+          </button>
+        </div>
+
+        <div className="mt-8 mb-2 px-4 flex items-center justify-between">
+          <span className={`text-xs font-bold uppercase tracking-wider ${colors.textLight}`}>My Folders</span>
+          <button 
+            onClick={() => setIsAdding(true)}
+            className={`p-1.5 rounded-full hover:bg-white/50 transition-colors ${colors.textLight} hover:text-[#4A3F35]`}
+            title="New Folder"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {isAdding && (
+          <form onSubmit={handleSubmit} className="mb-2 px-2">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Folder name..."
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onBlur={() => !newFolderName && setIsAdding(false)}
+              className={`w-full px-4 py-2 bg-white rounded-xl border ${colors.border} outline-none focus:ring-2 focus:ring-[#C17F59]/30 text-sm`}
+            />
+          </form>
+        )}
+
+        <div className="space-y-1 px-2">
+          {folders.length === 0 && !isAdding && (
+            <p className={`text-sm px-2 italic ${colors.textLight}`}>No folders yet.</p>
+          )}
+          {folders.map(folder => (
+            <button
+              key={folder.id}
+              onClick={() => setActiveFolder(folder.id)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${activeFolder === folder.id ? 'bg-white shadow-sm font-medium' : 'hover:bg-white/40'}`}
+            >
+              {activeFolder === folder.id ? (
+                <FolderOpen className={`w-4 h-4 ${colors.accent.replace('bg-', 'text-')}`} />
+              ) : (
+                <Folder className={`w-4 h-4 ${colors.textLight}`} />
+              )}
+              <span className="truncate">{folder.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function URLAnalyzer({ user, folders, appId, db }) {
+  const [url, setUrl] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  
+  // Save states
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleAnalyze = async (e) => {
+    e.preventDefault();
+    if (!url.trim()) return;
+    
+    setIsAnalyzing(true);
+    setError('');
+    setResult(null);
+    setSaveSuccess(false);
+
+    try {
+      const prompt = `Please visit or search for information regarding this URL: ${url}. Analyze its content, summarize it beautifully, and extract the most important information and key points. Format the output clearly using markdown-like structure (bullet points, bold text). Keep it warm and readable.`;
+      const response = await callGemini(prompt, true);
+      setResult({ url, summary: response, title: `Analysis of ${new URL(url).hostname}` });
+    } catch (err) {
+      setError('Could not analyze this URL. It might be inaccessible or invalid.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedFolderId || !result) return;
+    setIsSaving(true);
+    try {
+      const itemsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'items');
+      await addDoc(itemsRef, {
+        url: result.url,
+        title: result.title,
+        summary: result.summary,
+        folderId: selectedFolderId,
+        createdAt: serverTimestamp()
+      });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Save error:", err);
+      setError("Failed to save to folder.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+      <div className="text-center space-y-4 mb-10">
+        <h2 className="text-4xl font-bold tracking-tight">What shall we explore today?</h2>
+        <p className={`text-lg ${colors.textLight}`}>Paste a link to an article, video, or site, and let AI brew a cozy summary for you.</p>
+      </div>
+
+      <div className={`p-8 rounded-3xl shadow-[0_8px_30px_rgb(92,74,61,0.06)] bg-white border border-white/40`}>
+        <form onSubmit={handleAnalyze} className="flex gap-4 flex-col sm:flex-row">
+          <div className="relative flex-1 group">
+            <LinkIcon className={`absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 ${colors.textLight} transition-colors group-focus-within:${colors.accent.replace('bg-','text-')}`} />
+            <input
+              type="url"
+              required
+              placeholder="https://example.com/interesting-article"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className={`w-full py-4 pl-14 pr-6 bg-[#F9F6F0]/50 border ${colors.border} rounded-2xl outline-none focus:ring-4 focus:ring-[#C17F59]/20 focus:border-[#C17F59]/40 transition-all text-lg`}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isAnalyzing}
+            className={`px-8 py-4 ${colors.accent} ${colors.accentHover} text-white font-medium rounded-2xl transition-all shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[140px]`}
+          >
+            {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Sparkles className="w-5 h-5" /> Analyze</>}
+          </button>
+        </form>
+
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-2xl flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <p>{error}</p>
+          </div>
+        )}
+      </div>
+
+      {result && (
+        <div className={`p-8 rounded-3xl shadow-[0_8px_30px_rgb(92,74,61,0.04)] bg-white border border-white/40 animate-in fade-in slide-in-from-bottom-4 duration-500`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-[#F9F6F0]">
+            <div>
+              <h3 className="text-2xl font-bold">{result.title}</h3>
+              <a href={result.url} target="_blank" rel="noreferrer" className={`text-sm ${colors.accent.replace('bg-','text-')} hover:underline truncate inline-block max-w-[300px]`}>
+                {result.url}
+              </a>
+            </div>
             
-            tiles.forEach((value, index) => {
-                const tileEl = document.createElement('div');
-                tileEl.classList.add('tile');
-                
-                // Set grid coordinates for visual positioning
-                const row = Math.floor(index / boardSize);
-                const col = index % boardSize;
-                
-                // Using CSS Grid lines (1-indexed)
-                tileEl.style.gridRow = `${row + 1}`;
-                tileEl.style.gridColumn = `${col + 1}`;
-                tileEl.dataset.index = index;
+            {/* Save Controls */}
+            <div className="flex items-center gap-3 p-2 bg-[#F9F6F0] rounded-2xl">
+              <select
+                value={selectedFolderId}
+                onChange={(e) => setSelectedFolderId(e.target.value)}
+                className={`py-2.5 px-4 bg-white border-none rounded-xl outline-none text-sm cursor-pointer shadow-sm`}
+              >
+                <option value="" disabled>Select Folder...</option>
+                {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              <button
+                onClick={handleSave}
+                disabled={!selectedFolderId || isSaving || saveSuccess}
+                className={`px-4 py-2.5 bg-white border ${colors.border} rounded-xl hover:bg-[#EAE3D9] transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium shadow-sm`}
+              >
+                {saveSuccess ? (
+                  <><Bookmark className="w-4 h-4 fill-green-600 text-green-600" /> Saved!</>
+                ) : (
+                  <><Bookmark className="w-4 h-4" /> Save</>
+                )}
+              </button>
+            </div>
+          </div>
 
-                if (value === 0) {
-                    tileEl.classList.add('empty');
-                    tileEl.textContent = '';
-                } else {
-                    tileEl.textContent = value;
-                    // Add touch/click listener
-                    tileEl.addEventListener('click', () => handleTileClick(index));
-                    // Touch events for mobile responsiveness
-                    tileEl.addEventListener('touchstart', (e) => {
-                        e.preventDefault(); // Prevent double firing on some devices
-                        handleTileClick(index);
-                    }, {passive: false});
-                }
-                
-                gameBoard.appendChild(tileEl);
-            });
+          <div className="prose prose-stone prose-p:leading-relaxed prose-headings:font-semibold prose-a:text-[#C17F59] max-w-none">
+            <MarkdownRenderer text={result.summary} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FolderView({ folder, items, onDelete }) {
+  if (!folder) return null;
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold flex items-center gap-3">
+          <FolderOpen className={`w-8 h-8 ${colors.accent.replace('bg-', 'text-')}`} />
+          {folder.name}
+        </h2>
+        <p className={`mt-2 ${colors.textLight}`}>
+          {items.length === 0 ? "It's empty here! Grab a tea and start saving." : `${items.length} saved item${items.length !== 1 ? 's' : ''}`}
+        </p>
+      </div>
+
+      {items.length === 0 ? (
+        <div className={`p-12 text-center rounded-3xl border-2 border-dashed ${colors.border} flex flex-col items-center justify-center opacity-70`}>
+          <Coffee className={`w-12 h-12 mb-4 ${colors.textLight}`} />
+          <p className="text-lg">This folder is resting.</p>
+          <p className="text-sm mt-1">Use the URL analyzer to add summaries here.</p>
+        </div>
+      ) : (
+        <div className="grid gap-6">
+          {items.map(item => (
+            <SavedItemCard key={item.id} item={item} onDelete={onDelete} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchView({ query, items, onDelete }) {
+  const [aiResult, setAiResult] = useState(null);
+  const [isSearchingWeb, setIsSearchingWeb] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Filter local items
+  const filteredItems = items.filter(item => {
+    const q = query.toLowerCase();
+    return (item.title?.toLowerCase().includes(q) || item.summary?.toLowerCase().includes(q));
+  });
+
+  // Trigger Gemini if no local results
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAI = async () => {
+      if (filteredItems.length === 0 && query.trim()) {
+        setIsSearchingWeb(true);
+        setAiResult(null);
+        setError(null);
+        try {
+          const prompt = `The user searched for "${query}" in their personal saves but found nothing. Please act as a helpful web assistant, search the web for this query, and provide a cozy, concise, and helpful summary or answer.`;
+          const response = await callGemini(prompt, true);
+          if (isMounted) setAiResult(response);
+        } catch (err) {
+          if (isMounted) setError("Could not connect to AI web search.");
+        } finally {
+          if (isMounted) setIsSearchingWeb(false);
         }
+      }
+    };
+    
+    // Debounce slightly just in case
+    const timer = setTimeout(() => {
+      fetchAI();
+    }, 500);
 
-        // Check if a tile can move and move it
-        function handleTileClick(clickedIndex) {
-            if (isAnimating) return;
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [query, items]); // Intentionally checking against length implicitly
 
-            const emptyIndex = tiles.indexOf(0);
-            
-            if (isAdjacent(clickedIndex, emptyIndex)) {
-                moveTile(clickedIndex, emptyIndex);
+  return (
+    <div className="animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold flex items-center gap-3">
+          <Search className={`w-7 h-7 ${colors.textLight}`} />
+          Search Results
+        </h2>
+        <p className={`mt-2 ${colors.textLight}`}>
+          Showing results for "<span className="font-medium text-[#4A3F35]">{query}</span>"
+        </p>
+      </div>
+
+      {filteredItems.length > 0 ? (
+        <div className="space-y-8">
+          <div className="grid gap-6">
+            <h3 className="font-bold text-lg border-b border-[#DBCFC0] pb-2">From Your Saves</h3>
+            {filteredItems.map(item => (
+              <SavedItemCard key={item.id} item={item} onDelete={onDelete} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className={`p-6 rounded-2xl ${colors.sidebar} border border-white flex items-start gap-4`}>
+            <Sparkles className={`w-6 h-6 shrink-0 mt-1 ${colors.accent.replace('bg-','text-')}`} />
+            <div>
+              <h3 className="font-bold text-lg mb-1">No local saves found</h3>
+              <p className="text-sm opacity-80">Don't worry! I'm searching the web for you to find the best answer.</p>
+            </div>
+          </div>
+
+          <div className={`p-8 rounded-3xl shadow-sm bg-white border ${colors.border}`}>
+            {isSearchingWeb ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-4">
+                <Loader2 className={`w-8 h-8 animate-spin ${colors.accent.replace('bg-','text-')}`} />
+                <p className={colors.textLight}>Brewing an answer from the web...</p>
+              </div>
+            ) : error ? (
+              <p className="text-red-500 py-4">{error}</p>
+            ) : aiResult ? (
+              <div>
+                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  AI Web Response
+                </h3>
+                <div className="prose prose-stone prose-p:leading-relaxed max-w-none">
+                  <MarkdownRenderer text={aiResult} />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SavedItemCard({ item, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className={`p-6 rounded-3xl bg-white border border-[#F9F6F0] shadow-sm hover:shadow-[0_8px_30px_rgb(92,74,61,0.06)] transition-all group overflow-hidden`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-xl font-bold mb-2 truncate" title={item.title}>{item.title}</h3>
+          <a href={item.url} target="_blank" rel="noreferrer" className={`text-sm ${colors.accent.replace('bg-','text-')} hover:underline flex items-center gap-1 w-fit mb-4`}>
+            <LinkIcon className="w-3 h-3" /> Visit Source
+          </a>
+        </div>
+        <button 
+          onClick={() => onDelete(item.id)}
+          className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+          title="Delete saved item"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className={`relative ${!expanded ? 'max-h-32 overflow-hidden' : ''}`}>
+        <div className="prose prose-sm prose-stone max-w-none text-sm leading-relaxed">
+          <MarkdownRenderer text={item.summary} />
+        </div>
+        {!expanded && (
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        )}
+      </div>
+      
+      <button 
+        onClick={() => setExpanded(!expanded)}
+        className={`mt-2 text-sm font-medium ${colors.textLight} hover:${colors.text} transition-colors flex items-center gap-1`}
+      >
+        {expanded ? 'Read Less' : 'Read More'} <ChevronRight className={`w-4 h-4 transition-transform ${expanded ? '-rotate-90' : 'rotate-90'}`} />
+      </button>
+    </div>
+  );
+}
+
+// Simple Markdown Renderer for basic styling (bold, bullets, paragraphs)
+function MarkdownRenderer({ text }) {
+  if (!text) return null;
+  
+  // Split by double newline for paragraphs
+  const paragraphs = text.split(/\n\n+/);
+  
+  return (
+    <>
+      {paragraphs.map((p, i) => {
+        // Handle bold text **text**
+        const formatBold = (str) => {
+          const parts = str.split(/(\*\*.*?\*\*)/g);
+          return parts.map((part, j) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={j} className="text-[#4A3F35] font-bold">{part.slice(2, -2)}</strong>;
             }
+            return part;
+          });
+        };
+
+        // Handle simple lists starting with * or -
+        if (p.trim().startsWith('* ') || p.trim().startsWith('- ')) {
+          const items = p.split('\n');
+          return (
+            <ul key={i} className="list-disc pl-5 space-y-2 my-4">
+              {items.map((item, j) => {
+                const cleanItem = item.replace(/^[\*\-]\s/, '');
+                return <li key={j} className="text-[#5C4A3D]">{formatBold(cleanItem)}</li>;
+              })}
+            </ul>
+          );
         }
 
-        // Determine if two grid indices are next to each other (not diagonally)
-        function isAdjacent(index1, index2) {
-            const row1 = Math.floor(index1 / boardSize);
-            const col1 = index1 % boardSize;
-            const row2 = Math.floor(index2 / boardSize);
-            const col2 = index2 % boardSize;
-
-            const rowDiff = Math.abs(row1 - row2);
-            const colDiff = Math.abs(col1 - col2);
-
-            return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
-        }
-
-        // Perform the visual and logical move
-        function moveTile(clickedIndex, emptyIndex) {
-            isAnimating = true;
-            
-            // 1. Get the DOM elements
-            const clickedTileEl = gameBoard.querySelector(`.tile[data-index="${clickedIndex}"]`);
-            const emptyTileEl = gameBoard.querySelector(`.tile[data-index="${emptyIndex}"]`);
-
-            // 2. Calculate physical distance to move for CSS translation
-            const cRect = clickedTileEl.getBoundingClientRect();
-            const eRect = emptyTileEl.getBoundingClientRect();
-            const dx = eRect.left - cRect.left;
-            const dy = eRect.top - cRect.top;
-
-            // 3. Apply CSS transition to the clicked tile
-            clickedTileEl.style.zIndex = '10'; // Bring to front during move
-            clickedTileEl.style.transform = `translate(${dx}px, ${dy}px)`;
-
-            // 4. Update logical array state
-            [tiles[clickedIndex], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[clickedIndex]];
-            
-            moveCount++;
-            updateMoveCount();
-
-            // 5. Wait for transition, then re-render grid
-            setTimeout(() => {
-                clickedTileEl.style.transform = '';
-                clickedTileEl.style.zIndex = '';
-                renderBoard();
-                isAnimating = false;
-                checkWinCondition();
-            }, 150); // Matches the CSS transition duration
-        }
-
-        function updateMoveCount() {
-            moveCountEl.textContent = moveCount;
-        }
-
-        // Check if current array matches [1, 2, 3, ... , 15, 0]
-        function checkWinCondition() {
-            let isWin = true;
-            for (let i = 0; i < numTiles - 1; i++) {
-                if (tiles[i] !== i + 1) {
-                    isWin = false;
-                    break;
-                }
-            }
-            // Ensure last tile is empty (0)
-            if (isWin && tiles[numTiles - 1] === 0) {
-                showWinScreen();
-            }
-        }
-
-        function showWinScreen() {
-            finalMovesEl.textContent = moveCount;
-            winModal.classList.add('active');
-            createConfetti();
-        }
-
-        // Shuffle logic (Ensure it's solvable by simulating valid moves)
-        function shuffleBoard() {
-            if (isAnimating) return;
-            winModal.classList.remove('active');
-            
-            // A simple way to guarantee a solvable board is to make many random valid moves.
-            // Rather than randomizing the array and checking parity.
-            let emptyIndex = tiles.indexOf(0);
-            const shuffleMoves = 100; // Number of random moves to scramble
-            
-            for (let i = 0; i < shuffleMoves; i++) {
-                const neighbors = getValidNeighbors(emptyIndex);
-                const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
-                
-                // Swap in array
-                [tiles[emptyIndex], tiles[randomNeighbor]] = [tiles[randomNeighbor], tiles[emptyIndex]];
-                emptyIndex = randomNeighbor;
-            }
-            
-            moveCount = 0;
-            updateMoveCount();
-            renderBoard();
-        }
-
-        // Helper for shuffle: Get valid indices adjacent to the empty space
-        function getValidNeighbors(emptyIdx) {
-            const row = Math.floor(emptyIdx / boardSize);
-            const col = emptyIdx % boardSize;
-            const neighbors = [];
-
-            if (row > 0) neighbors.push(emptyIdx - boardSize); // Up
-            if (row < boardSize - 1) neighbors.push(emptyIdx + boardSize); // Down
-            if (col > 0) neighbors.push(emptyIdx - 1); // Left
-            if (col < boardSize - 1) neighbors.push(emptyIdx + 1); // Right
-
-            return neighbors;
-        }
-
-        // Keyboard support
-        window.addEventListener('keydown', (e) => {
-            if (isAnimating || winModal.classList.contains('active')) return;
-            
-            const emptyIndex = tiles.indexOf(0);
-            const row = Math.floor(emptyIndex / boardSize);
-            const col = emptyIndex % boardSize;
-            let targetIndex = -1;
-
-            // Note: Arrow keys move the *tile*, not the empty space. 
-            // So if user presses ArrowUp, a tile BELOW the empty space moves UP into it.
-            if (e.key === 'ArrowUp' && row < boardSize - 1) {
-                targetIndex = emptyIndex + boardSize; // Tile below moves up
-            } else if (e.key === 'ArrowDown' && row > 0) {
-                targetIndex = emptyIndex - boardSize; // Tile above moves down
-            } else if (e.key === 'ArrowLeft' && col < boardSize - 1) {
-                targetIndex = emptyIndex + 1; // Tile right moves left
-            } else if (e.key === 'ArrowRight' && col > 0) {
-                targetIndex = emptyIndex - 1; // Tile left moves right
-            }
-
-            if (targetIndex !== -1) {
-                moveTile(targetIndex, emptyIndex);
-            }
-        });
-
-        // Basic Confetti effect for winning
-        function createConfetti() {
-            for (let i = 0; i < 50; i++) {
-                const confetti = document.createElement('div');
-                confetti.classList.add('confetti');
-                confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.top = -10 + 'vh';
-                confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
-                confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
-                confetti.style.animationDelay = (Math.random() * 2) + 's';
-                document.body.appendChild(confetti);
-                
-                // Cleanup confetti
-                setTimeout(() => {
-                    confetti.remove();
-                }, 5000);
-            }
-        }
-
-        // Bind Buttons
-        shuffleBtn.addEventListener('click', shuffleBoard);
-        playAgainBtn.addEventListener('click', () => {
-            winModal.classList.remove('active');
-            shuffleBoard();
-        });
-
-        // Start the game!
-        initGame();
-        // Automatically shuffle on first load so it's ready to play
-        setTimeout(shuffleBoard, 500); 
-
-    </script>
-</body>
-</html>
+        return <p key={i} className="mb-4 text-[#5C4A3D]">{formatBold(p)}</p>;
+      })}
+    </>
+  );
+}
