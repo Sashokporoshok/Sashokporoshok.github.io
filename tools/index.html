@@ -464,13 +464,69 @@
 
         // --- КОНФИГУРАЦИЯ СТАТУСОВ И ПРИОРИТЕТОВ ---
         const STATUS_CONFIG = {
-// ... existing code ... -->
+            none: {
+                label: 'Не начинал',
+                short: 'Не начато',
+                icon: '🔴',
+                order: 1,
+                badgeClass: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
+            },
+            studying: {
+                label: 'Изучаю',
+                short: 'Изучаю',
+                icon: '🟡',
+                order: 2,
+                badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60'
+            },
+            repeat: {
+                label: 'Повторить',
+                short: 'Повторить',
+                icon: '🔵',
+                order: 3,
+                badgeClass: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/60'
+            },
+            mastered: {
+                label: 'Знаю на 100%',
+                short: '100%',
+                icon: '🟢',
+                order: 4,
+                badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
+            }
+        };
+
+        const STATUS_CYCLE = ['none', 'studying', 'repeat', 'mastered'];
+
+        const PRIORITY_CONFIG = {
+            high: {
+                label: 'Высокий',
+                icon: 'fa-bolt',
+                order: 1,
+                badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60'
+            },
+            medium: {
+                label: 'Средний',
+                icon: 'fa-minus',
+                order: 2,
+                badgeClass: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+            },
+            low: {
+                label: 'Низкий',
+                icon: 'fa-arrow-down',
+                order: 3,
+                badgeClass: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+            }
+        };
+
         // --- СОСТОЯНИЕ ПРИЛОЖЕНИЯ ---
         let exams = [];
-        let activeProfile = null; // { id, name, email, mode: 'firebase' | 'cloud_profile' }
+        let activeProfile = null; // { id, name, email, mode: 'firebase' | 'cloud_profile' | 'memory' }
         let unsubscribeExams = null;
         let authFormMode = 'login'; // 'login' | 'register'
         let isDarkTheme = false;
+
+        // Резервное хранилище в памяти (если конфигурация облака не передана)
+        const memoryAccounts = new Map();
+        const memoryExamsStore = new Map();
 
         let filterState = {
             status: 'all',        // 'all' | 'active' | 'none' | 'studying' | 'repeat' | 'mastered'
@@ -512,7 +568,7 @@
 
         // --- ПУТИ К ОБЛАЧНЫМ ДАННЫМ ПОЛЬЗОВАТЕЛЯ ---
         function getUserExamsCollectionRef() {
-            if (!db || !auth?.currentUser || !activeProfile) return null;
+            if (!db || !auth?.currentUser || !activeProfile || activeProfile.mode === 'memory') return null;
             if (activeProfile.mode === 'firebase') {
                 return collection(db, 'artifacts', appId, 'users', activeProfile.id, 'exams');
             }
@@ -520,7 +576,7 @@
         }
 
         function getUserExamDocRef(examId) {
-            if (!db || !auth?.currentUser || !activeProfile) return null;
+            if (!db || !auth?.currentUser || !activeProfile || activeProfile.mode === 'memory') return null;
             if (activeProfile.mode === 'firebase') {
                 return doc(db, 'artifacts', appId, 'users', activeProfile.id, 'exams', examId);
             }
@@ -529,11 +585,15 @@
 
         async function upsertExamToCloud(exam) {
             const cleanExam = migrateExamItem(exam);
-            // Мгновенно обновляем локальный массив для отзывчивости интерфейса
             const idx = exams.findIndex(e => e.id === cleanExam.id);
             if (idx >= 0) exams[idx] = cleanExam;
             else exams.push(cleanExam);
             render();
+
+            if (activeProfile?.mode === 'memory') {
+                memoryExamsStore.set(activeProfile.id, [...exams]);
+                return;
+            }
 
             const docRef = getUserExamDocRef(cleanExam.id);
             if (!docRef) return;
@@ -548,6 +608,11 @@
         async function deleteExamFromCloud(examId) {
             exams = exams.filter(item => item.id !== examId);
             render();
+
+            if (activeProfile?.mode === 'memory') {
+                memoryExamsStore.set(activeProfile.id, [...exams]);
+                return;
+            }
 
             const docRef = getUserExamDocRef(examId);
             if (!docRef) return;
@@ -564,6 +629,13 @@
                 unsubscribeExams();
                 unsubscribeExams = null;
             }
+
+            if (activeProfile?.mode === 'memory') {
+                exams = migrateData(memoryExamsStore.get(activeProfile.id) || []);
+                render();
+                return;
+            }
+
             const colRef = getUserExamsCollectionRef();
             if (!colRef) return;
 
@@ -575,7 +647,6 @@
                 exams = loaded;
                 render();
 
-                // Если открыто окно пробников, обновляем его содержимое в реальном времени
                 const mocksModal = document.getElementById('mocks-modal');
                 if (!mocksModal.classList.contains('hidden')) {
                     const openExamId = document.getElementById('mocks-exam-id').value;
@@ -590,10 +661,26 @@
 
         // --- АВТОРИЗАЦИЯ И РЕГИСТРАЦИЯ ПОЛЬЗОВАТЕЛЕЙ ---
         async function hashPassword(password) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(password + '_examtracker_salt_v1');
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            const salted = password + '_examtracker_salt_v1';
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(salted);
+                    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+                    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) {
+                    // Переходим на резервный хеш ниже
+                }
+            }
+            let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+            for (let i = 0; i < salted.length; i++) {
+                const ch = salted.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
         }
 
         function emailToAccountId(email) {
@@ -676,7 +763,8 @@
             subscribeToUserExams();
         }
 
-        function mapAuthError(code) {
+        function mapAuthError(err) {
+            const code = err?.code || '';
             switch (code) {
                 case 'auth/email-already-in-use':
                     return 'Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».';
@@ -690,9 +778,26 @@
                     return 'Неверный Email или пароль.';
                 case 'auth/too-many-requests':
                     return 'Слишком много неудачных попыток. Попробуйте позже.';
+                case 'permission-denied':
+                    return 'Нет доступа к базе данных. Проверьте подключение.';
                 default:
-                    return 'Ошибка авторизации. Проверьте данные и попробуйте снова.';
+                    return err?.message ? `Ошибка: ${err.message}` : 'Ошибка авторизации. Проверьте данные и попробуйте снова.';
             }
+        }
+
+        async function ensureBaseAuth() {
+            if (!auth) return null;
+            if (auth.currentUser) return auth.currentUser;
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const res = await signInWithCustomToken(auth, __initial_auth_token);
+                    return res.user;
+                }
+            } catch (e) {
+                console.warn('Не удалось войти по токену, выполняем анонимный вход:', e);
+            }
+            const anonRes = await signInAnonymously(auth);
+            return anonRes.user;
         }
 
         document.getElementById('auth-form').addEventListener('submit', async (e) => {
@@ -716,20 +821,38 @@
                 return;
             }
 
-            if (!auth || !db) {
-                showAuthError('Сервис облачной авторизации недоступен.');
-                return;
-            }
-
             setAuthLoading(true);
             try {
-                // Гарантируем базовую авторизацию перед любыми запросами
-                if (!auth.currentUser) {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
+                // Если облачная конфигурация отсутствует, используем сессионный профиль
+                if (!auth || !db) {
+                    const accId = emailToAccountId(email);
+                    const passwordHash = await hashPassword(password);
+                    if (authFormMode === 'register') {
+                        if (memoryAccounts.has(accId)) {
+                            showAuthError('Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».');
+                            return;
+                        }
+                        memoryAccounts.set(accId, { email, name, passwordHash });
+                        enterAppWithProfile({ id: accId, name, email, mode: 'memory' });
+                        showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
                     } else {
-                        await signInAnonymously(auth);
+                        const acc = memoryAccounts.get(accId);
+                        if (!acc || acc.passwordHash !== passwordHash) {
+                            showAuthError('Неверный Email или пароль.');
+                            return;
+                        }
+                        enterAppWithProfile({ id: accId, name: acc.name, email, mode: 'memory' });
+                        showToast(`С возвращением, ${acc.name}!`, 'success');
                     }
+                    document.getElementById('auth-password-input').value = '';
+                    return;
+                }
+
+                // Гарантируем базовую авторизацию перед любыми запросами
+                const currentUser = await ensureBaseAuth();
+                if (!currentUser) {
+                    showAuthError('Не удалось установить соединение с сервером авторизации.');
+                    return;
                 }
 
                 if (authFormMode === 'register') {
@@ -745,13 +868,11 @@
                         showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
                     } catch (fbErr) {
                         if (fbErr.code === 'auth/operation-not-allowed') {
-                            // Резервный облачный профиль для текущего окружения
                             const accId = emailToAccountId(email);
                             const accRef = doc(db, 'artifacts', appId, 'public', 'data', 'exam_accounts', accId);
                             const existing = await getDoc(accRef);
                             if (existing.exists()) {
                                 showAuthError('Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».');
-                                setAuthLoading(false);
                                 return;
                             }
                             const passwordHash = await hashPassword(password);
@@ -790,14 +911,12 @@
                             const snap = await getDoc(accRef);
                             if (!snap.exists()) {
                                 showAuthError('Неверный Email или пароль.');
-                                setAuthLoading(false);
                                 return;
                             }
                             const data = snap.data();
                             const passwordHash = await hashPassword(password);
                             if (data.passwordHash !== passwordHash) {
                                 showAuthError('Неверный Email или пароль.');
-                                setAuthLoading(false);
                                 return;
                             }
                             enterAppWithProfile({
@@ -815,7 +934,7 @@
                 document.getElementById('auth-password-input').value = '';
             } catch (err) {
                 console.error('Auth error:', err);
-                showAuthError(mapAuthError(err.code));
+                showAuthError(mapAuthError(err));
             } finally {
                 setAuthLoading(false);
             }
@@ -843,7 +962,7 @@
                     if (auth) {
                         try {
                             await signOut(auth);
-                            await signInAnonymously(auth);
+                            await ensureBaseAuth();
                         } catch (e) {
                             console.error('Ошибка при выходе:', e);
                         }
@@ -856,7 +975,6 @@
         async function bootstrapAuth() {
             if (!auth) return;
             try {
-                // Если пользователь уже вошел в постоянный аккаунт (Email/Пароль), открываем сразу
                 if (auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.email) {
                     enterAppWithProfile({
                         id: auth.currentUser.uid,
@@ -866,13 +984,7 @@
                     });
                     return;
                 }
-
-                // Иначе выполняем обязательную первичную авторизацию до любых запросов
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await ensureBaseAuth();
             } catch (err) {
                 console.error('Ошибка инициализации сессии:', err);
             }
