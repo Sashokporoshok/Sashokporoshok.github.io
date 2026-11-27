@@ -92,17 +92,11 @@
 
                     <div class="h-5 w-px bg-white/20 dark:bg-slate-700 mx-0.5"></div>
 
-                    <!-- Профиль пользователя (показывается после входа) -->
-                    <div id="user-profile-bar" class="hidden items-center gap-2 bg-white/10 dark:bg-slate-800 pl-2 pr-1.5 py-1 rounded-xl border border-white/15 dark:border-slate-700">
-                        <div id="user-avatar" class="w-7 h-7 rounded-lg bg-white text-indigo-600 dark:bg-indigo-500 dark:text-white font-bold text-xs flex items-center justify-center uppercase">
-                            U
-                        </div>
-                        <span id="user-display-name" class="text-xs font-semibold max-w-[100px] sm:max-w-[140px] truncate">Пользователь</span>
-                        <button id="logout-btn" title="Выйти из аккаунта"
-                            class="px-2 py-1 rounded-lg bg-white/15 hover:bg-rose-500 text-white text-xs font-medium transition-colors flex items-center gap-1">
-                            <i class="fa-solid fa-right-from-bracket"></i>
-                            <span class="hidden sm:inline">Выйти</span>
-                        </button>
+                    <!-- Индикатор приватного хранения на устройстве -->
+                    <div title="Ваши экзамены сохраняются автоматически только на этом устройстве и скрыты от других пользователей"
+                        class="hidden sm:flex items-center gap-1.5 bg-white/10 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg border border-white/15 dark:border-slate-700 text-xs font-medium text-indigo-100 dark:text-slate-300">
+                        <i class="fa-solid fa-shield-halved text-emerald-300"></i>
+                        <span>Личный доступ</span>
                     </div>
 
                     <button id="theme-toggle" title="Переключить тему"
@@ -114,84 +108,8 @@
         </div>
     </nav>
 
-    <!-- ЭКРАН АВТОРИЗАЦИИ И РЕГИСТРАЦИИ -->
-    <section id="auth-screen" class="max-w-md mx-auto px-4 mt-10 sm:mt-16">
-        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-800 p-6 sm:p-8 modal-animate">
-            <div class="text-center mb-6">
-                <div class="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 text-2xl shadow-xs">
-                    <i class="fa-solid fa-user-graduate"></i>
-                </div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Личный кабинет</h1>
-                <p class="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-1">Войдите или создайте аккаунт, чтобы ваши экзамены и прогресс хранились отдельно</p>
-            </div>
-
-            <!-- Переключатель Вход / Регистрация -->
-            <div class="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 dark:bg-slate-800 rounded-xl mb-6">
-                <button type="button" id="tab-login-btn" class="py-2 rounded-lg text-xs sm:text-sm font-semibold bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs transition-all">
-                    Вход
-                </button>
-                <button type="button" id="tab-register-btn" class="py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-all">
-                    Регистрация
-                </button>
-            </div>
-
-            <!-- Уведомление при запуске на GitHub Pages без подключенной базы -->
-            <div id="offline-host-notice" class="hidden mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs leading-relaxed">
-                <div class="font-semibold flex items-center gap-1.5 mb-1">
-                    <i class="fa-solid fa-circle-info text-amber-500"></i>
-                    <span>Сессионный режим (база не подключена)</span>
-                </div>
-                <p>На GitHub Pages аккаунты сохраняются только до перезагрузки страницы, пока в коде не указаны ключи облачной базы.</p>
-                <button type="button" id="open-github-guide-btn" class="mt-1.5 inline-flex items-center gap-1 font-semibold underline hover:text-amber-950 dark:hover:text-white">
-                    Как подключить постоянную регистрацию на GitHub?
-                </button>
-            </div>
-
-            <!-- Форма входа / регистрации -->
-            <form id="auth-form" class="space-y-4" novalidate>
-                <div id="register-name-group" class="hidden">
-                    <label for="auth-name-input" class="block text-xs font-semibold text-gray-600 dark:text-slate-400 mb-1">Ваше имя</label>
-                    <div class="relative">
-                        <i class="fa-regular fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                        <input type="text" id="auth-name-input" placeholder="Например: Алексей"
-                            class="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="auth-email-input" class="block text-xs font-semibold text-gray-600 dark:text-slate-400 mb-1">Email</label>
-                    <div class="relative">
-                        <i class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                        <input type="email" id="auth-email-input" placeholder="student@example.com" required
-                            class="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="auth-password-input" class="block text-xs font-semibold text-gray-600 dark:text-slate-400 mb-1">Пароль</label>
-                    <div class="relative">
-                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                        <input type="password" id="auth-password-input" placeholder="Минимум 6 символов" required
-                            class="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500">
-                        <button type="button" id="toggle-password-visibility" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1">
-                            <i class="fa-regular fa-eye text-sm"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div id="auth-error-box" class="hidden p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs font-medium"></div>
-
-                <button type="submit" id="auth-submit-btn"
-                    class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold rounded-xl text-sm shadow-sm transition-all flex items-center justify-center gap-2">
-                    <span id="auth-submit-text">Войти в аккаунт</span>
-                    <i id="auth-submit-spinner" class="fa-solid fa-circle-notch fa-spin hidden"></i>
-                </button>
-            </form>
-        </div>
-    </section>
-
-    <!-- Основной контент (скрыт до входа в аккаунт) -->
-    <main id="app-main" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8">
+    <!-- Основной контент -->
+    <main id="app-main" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8">
         
         <!-- Верхняя панель: Добавление нового экзамена и общая статистика -->
         <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 sm:p-6 mb-6 border border-gray-100 dark:border-slate-800 transition-colors">
@@ -436,28 +354,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО: Инструкция по подключению базы для GitHub Pages -->
-    <div id="github-guide-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-gray-100 dark:border-slate-800 modal-animate">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <i class="fa-brands fa-github text-indigo-500"></i> Настройка регистрации на GitHub Pages
-                </h3>
-                <button class="close-modal text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 w-8 h-8 rounded-lg flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <ol class="space-y-3 text-xs sm:text-sm text-gray-600 dark:text-slate-300 list-decimal pl-5">
-                <li>Создайте бесплатный проект в <strong>Firebase Console</strong> и зарегистрируйте в нем веб-приложение (<code>&lt;/&gt;</code>), чтобы получить объект <code>firebaseConfig</code>.</li>
-                <li>В разделе <strong>Authentication → Sign-in method</strong> включите вход по <strong>Email/Password</strong>, а во вкладке <strong>Settings → Authorized domains</strong> добавьте ваш домен <code>ваш-ник.github.io</code>.</li>
-                <li>В разделе <strong>Firestore Database</strong> создайте базу данных и вставьте ваш <code>firebaseConfig</code> в переменную <code>CUSTOM_FIREBASE_CONFIG</code> в начале скрипта в файле <code>index.html</code>.</li>
-            </ol>
-            <div class="flex justify-end mt-6">
-                <button class="close-modal px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">Понятно</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Контейнер для всплывающих уведомлений (вместо alert) -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
 
@@ -466,54 +362,102 @@
         import {
             getAuth,
             signInAnonymously,
-            signInWithCustomToken,
-            createUserWithEmailAndPassword,
-            signInWithEmailAndPassword,
-            signOut,
-            updateProfile
+            signInWithCustomToken
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import {
             getFirestore,
             doc,
-            getDoc,
             setDoc,
             deleteDoc,
             onSnapshot,
             collection
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- НАСТРОЙКИ БАЗЫ ДАННЫХ ДЛЯ GITHUB PAGES / СВОЕГО ХОСТИНГА ---
-        // Чтобы регистрация и данные сохранялись после загрузки на GitHub, вставьте сюда firebaseConfig из вашей консоли:
-        const CUSTOM_FIREBASE_CONFIG = null;
-        /* Пример заполнения:
-        const CUSTOM_FIREBASE_CONFIG = {
-            apiKey: "AIzaSy...",
-            authDomain: "your-project.firebaseapp.com",
-            projectId: "your-project",
-            storageBucket: "your-project.firebasestorage.app",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
-        };
-        */
-
-        // --- ИНИЦИАЛИЗАЦИЯ ОБЛАЧНОГО ХРАНИЛИЩА И АВТОРИЗАЦИИ ---
+        // --- ИНИЦИАЛИЗАЦИЯ ПРИВАТНОГО ХРАНИЛИЩА УСТРОЙСТВА ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const envFirebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config)
+        const firebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config)
             ? JSON.parse(__firebase_config)
             : null;
-        const firebaseConfig = (CUSTOM_FIREBASE_CONFIG && CUSTOM_FIREBASE_CONFIG.apiKey)
-            ? CUSTOM_FIREBASE_CONFIG
-            : envFirebaseConfig;
 
         let app = null;
         let auth = null;
         let db = null;
+        let currentUser = null;
 
         if (firebaseConfig) {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
         }
+
+        // Локальная база браузера (IndexedDB) для работы на GitHub Pages без регистрации
+        const DeviceDB = {
+            dbName: 'ExamTrackerPrivateDeviceDB_v1',
+            storeName: 'exams',
+            open() {
+                return new Promise((resolve, reject) => {
+                    try {
+                        if (!window.indexedDB) {
+                            reject(new Error('IndexedDB недоступен'));
+                            return;
+                        }
+                        const req = window.indexedDB.open(this.dbName, 1);
+                        req.onupgradeneeded = (e) => {
+                            const database = e.target.result;
+                            if (!database.objectStoreNames.contains(this.storeName)) {
+                                database.createObjectStore(this.storeName, { keyPath: 'id' });
+                            }
+                        };
+                        req.onsuccess = (e) => resolve(e.target.result);
+                        req.onerror = () => reject(req.error);
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            },
+            async getAll() {
+                try {
+                    const database = await this.open();
+                    return await new Promise((resolve, reject) => {
+                        const tx = database.transaction(this.storeName, 'readonly');
+                        const store = tx.objectStore(this.storeName);
+                        const req = store.getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+                } catch (e) {
+                    return null;
+                }
+            },
+            async put(exam) {
+                try {
+                    const database = await this.open();
+                    await new Promise((resolve, reject) => {
+                        const tx = database.transaction(this.storeName, 'readwrite');
+                        const store = tx.objectStore(this.storeName);
+                        const req = store.put(exam);
+                        req.onsuccess = () => resolve();
+                        req.onerror = () => reject(req.error);
+                    });
+                } catch (e) {
+                    // В изолированном окне предпросмотра состояние остается в памяти
+                }
+            },
+            async remove(examId) {
+                try {
+                    const database = await this.open();
+                    await new Promise((resolve, reject) => {
+                        const tx = database.transaction(this.storeName, 'readwrite');
+                        const store = tx.objectStore(this.storeName);
+                        const req = store.delete(examId);
+                        req.onsuccess = () => resolve();
+                        req.onerror = () => reject(req.error);
+                    });
+                } catch (e) {
+                    // Игнорируем, если база браузера ограничена
+                }
+            }
+        };
 
         // --- КОНФИГУРАЦИЯ СТАТУСОВ И ПРИОРИТЕТОВ ---
         const STATUS_CONFIG = {
@@ -572,14 +516,8 @@
 
         // --- СОСТОЯНИЕ ПРИЛОЖЕНИЯ ---
         let exams = [];
-        let activeProfile = null; // { id, name, email, mode: 'firebase' | 'cloud_profile' | 'memory' }
         let unsubscribeExams = null;
-        let authFormMode = 'login'; // 'login' | 'register'
         let isDarkTheme = false;
-
-        // Резервное хранилище в памяти (если конфигурация облака не передана)
-        const memoryAccounts = new Map();
-        const memoryExamsStore = new Map();
 
         let filterState = {
             status: 'all',        // 'all' | 'active' | 'none' | 'studying' | 'repeat' | 'mastered'
@@ -619,23 +557,7 @@
             return rawExams.map(migrateExamItem);
         }
 
-        // --- ПУТИ К ОБЛАЧНЫМ ДАННЫМ ПОЛЬЗОВАТЕЛЯ ---
-        function getUserExamsCollectionRef() {
-            if (!db || !auth?.currentUser || !activeProfile || activeProfile.mode === 'memory') return null;
-            if (activeProfile.mode === 'firebase') {
-                return collection(db, 'artifacts', appId, 'users', activeProfile.id, 'exams');
-            }
-            return collection(db, 'artifacts', appId, 'public', 'data', `exams_${activeProfile.id}`);
-        }
-
-        function getUserExamDocRef(examId) {
-            if (!db || !auth?.currentUser || !activeProfile || activeProfile.mode === 'memory') return null;
-            if (activeProfile.mode === 'firebase') {
-                return doc(db, 'artifacts', appId, 'users', activeProfile.id, 'exams', examId);
-            }
-            return doc(db, 'artifacts', appId, 'public', 'data', `exams_${activeProfile.id}`, examId);
-        }
-
+        // --- СОХРАНЕНИЕ И ЗАГРУЗКА ПРИВАТНЫХ ДАННЫХ УСТРОЙСТВА ---
         async function upsertExamToCloud(exam) {
             const cleanExam = migrateExamItem(exam);
             const idx = exams.findIndex(e => e.id === cleanExam.id);
@@ -643,18 +565,15 @@
             else exams.push(cleanExam);
             render();
 
-            if (activeProfile?.mode === 'memory') {
-                memoryExamsStore.set(activeProfile.id, [...exams]);
-                return;
-            }
-
-            const docRef = getUserExamDocRef(cleanExam.id);
-            if (!docRef) return;
-            try {
-                await setDoc(docRef, cleanExam);
-            } catch (err) {
-                console.error('Ошибка сохранения предмета:', err);
-                showToast('Не удалось синхронизировать изменения с облаком', 'error');
+            if (db && currentUser) {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'exams', cleanExam.id);
+                    await setDoc(docRef, cleanExam);
+                } catch (err) {
+                    console.error('Ошибка синхронизации предмета:', err);
+                }
+            } else {
+                await DeviceDB.put(cleanExam);
             }
         }
 
@@ -662,523 +581,62 @@
             exams = exams.filter(item => item.id !== examId);
             render();
 
-            if (activeProfile?.mode === 'memory') {
-                memoryExamsStore.set(activeProfile.id, [...exams]);
-                return;
-            }
-
-            const docRef = getUserExamDocRef(examId);
-            if (!docRef) return;
-            try {
-                await deleteDoc(docRef);
-            } catch (err) {
-                console.error('Ошибка удаления предмета:', err);
-                showToast('Ошибка при удалении предмета из облака', 'error');
-            }
-        }
-
-        function subscribeToUserExams() {
-            if (unsubscribeExams) {
-                unsubscribeExams();
-                unsubscribeExams = null;
-            }
-
-            if (activeProfile?.mode === 'memory') {
-                exams = migrateData(memoryExamsStore.get(activeProfile.id) || []);
-                render();
-                return;
-            }
-
-            const colRef = getUserExamsCollectionRef();
-            if (!colRef) return;
-
-            unsubscribeExams = onSnapshot(colRef, (snapshot) => {
-                const loaded = [];
-                snapshot.forEach(docSnap => {
-                    loaded.push(migrateExamItem({ id: docSnap.id, ...docSnap.data() }));
-                });
-                exams = loaded;
-                render();
-
-                const mocksModal = document.getElementById('mocks-modal');
-                if (!mocksModal.classList.contains('hidden')) {
-                    const openExamId = document.getElementById('mocks-exam-id').value;
-                    const openExam = exams.find(e => e.id === openExamId);
-                    if (openExam) renderMocksModalContent(openExam);
-                }
-            }, (error) => {
-                console.error('Ошибка подписки на данные пользователя:', error);
-                showToast('Ошибка загрузки данных профиля', 'error');
-            });
-        }
-
-        // --- АВТОРИЗАЦИЯ И РЕГИСТРАЦИЯ ПОЛЬЗОВАТЕЛЕЙ ---
-        async function hashPassword(password) {
-            const salted = password + '_examtracker_salt_v1';
-            if (window.crypto && window.crypto.subtle) {
+            if (db && currentUser) {
                 try {
-                    const encoder = new TextEncoder();
-                    const data = encoder.encode(salted);
-                    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-                    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-                } catch (e) {
-                    // Переходим на резервный хеш ниже
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'exams', examId);
+                    await deleteDoc(docRef);
+                } catch (err) {
+                    console.error('Ошибка удаления предмета:', err);
                 }
-            }
-            let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-            for (let i = 0; i < salted.length; i++) {
-                const ch = salted.charCodeAt(i);
-                h1 = Math.imul(h1 ^ ch, 2654435761);
-                h2 = Math.imul(h2 ^ ch, 1597334677);
-            }
-            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-            return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
-        }
-
-        function emailToAccountId(email) {
-            return email.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-        }
-
-        function setAuthLoading(loading) {
-            const btn = document.getElementById('auth-submit-btn');
-            const spinner = document.getElementById('auth-submit-spinner');
-            btn.disabled = loading;
-            if (loading) {
-                btn.classList.add('opacity-75', 'cursor-not-allowed');
-                spinner.classList.remove('hidden');
             } else {
-                btn.classList.remove('opacity-75', 'cursor-not-allowed');
-                spinner.classList.add('hidden');
+                await DeviceDB.remove(examId);
             }
         }
 
-        function showAuthError(msg) {
-            const box = document.getElementById('auth-error-box');
-            if (!msg) {
-                box.classList.add('hidden');
-                box.textContent = '';
-                return;
-            }
-            box.textContent = msg;
-            box.classList.remove('hidden');
-        }
-
-        function switchAuthTab(mode) {
-            authFormMode = mode;
-            showAuthError('');
-            const loginTab = document.getElementById('tab-login-btn');
-            const regTab = document.getElementById('tab-register-btn');
-            const nameGroup = document.getElementById('register-name-group');
-            const submitText = document.getElementById('auth-submit-text');
-
-            if (mode === 'register') {
-                regTab.className = 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs transition-all';
-                loginTab.className = 'py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-all';
-                nameGroup.classList.remove('hidden');
-                submitText.textContent = 'Создать аккаунт';
-            } else {
-                loginTab.className = 'py-2 rounded-lg text-xs sm:text-sm font-semibold bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs transition-all';
-                regTab.className = 'py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-all';
-                nameGroup.classList.add('hidden');
-                submitText.textContent = 'Войти в аккаунт';
-            }
-        }
-
-        document.getElementById('tab-login-btn').addEventListener('click', () => switchAuthTab('login'));
-        document.getElementById('tab-register-btn').addEventListener('click', () => switchAuthTab('register'));
-
-        document.getElementById('toggle-password-visibility').addEventListener('click', () => {
-            const input = document.getElementById('auth-password-input');
-            const icon = document.querySelector('#toggle-password-visibility i');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.className = 'fa-regular fa-eye-slash text-sm';
-            } else {
-                input.type = 'password';
-                icon.className = 'fa-regular fa-eye text-sm';
-            }
-        });
-
-        function enterAppWithProfile(profile) {
-            activeProfile = profile;
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('app-main').classList.remove('hidden');
-
-            const profileBar = document.getElementById('user-profile-bar');
-            profileBar.classList.remove('hidden');
-            profileBar.classList.add('flex');
-
-            const displayName = profile.name || profile.email.split('@')[0];
-            document.getElementById('user-display-name').textContent = displayName;
-            document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
-
-            subscribeToUserExams();
-        }
-
-        function mapAuthError(err) {
-            const code = err?.code || '';
-            switch (code) {
-                case 'auth/email-already-in-use':
-                    return 'Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».';
-                case 'auth/invalid-email':
-                    return 'Введите корректный адрес электронной почты.';
-                case 'auth/weak-password':
-                    return 'Пароль должен содержать не менее 6 символов.';
-                case 'auth/user-not-found':
-                case 'auth/wrong-password':
-                case 'auth/invalid-credential':
-                    return 'Неверный Email или пароль.';
-                case 'auth/unauthorized-domain':
-                    return 'Домен GitHub Pages не добавлен в Authorized domains в настройках авторизации.';
-                case 'auth/operation-not-allowed':
-                    return 'В настройках проекта не включен вход по Email/Password.';
-                case 'auth/too-many-requests':
-                    return 'Слишком много неудачных попыток. Попробуйте позже.';
-                case 'permission-denied':
-                    return 'Нет доступа к базе данных. Проверьте правила безопасности Firestore.';
-                default:
-                    return err?.message ? `Ошибка: ${err.message}` : 'Ошибка авторизации. Проверьте данные и попробуйте снова.';
-            }
-        }
-
-        async function ensureBaseAuth() {
-            if (!auth) return null;
-            if (auth.currentUser) return auth.currentUser;
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    const res = await signInWithCustomToken(auth, __initial_auth_token);
-                    return res.user;
-                }
-            } catch (e) {
-                console.warn('Не удалось войти по токену, выполняем анонимный вход:', e);
-            }
-            const anonRes = await signInAnonymously(auth);
-            return anonRes.user;
-        }
-
-        document.getElementById('auth-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            showAuthError('');
-
-            const name = document.getElementById('auth-name-input').value.trim();
-            const email = document.getElementById('auth-email-input').value.trim().toLowerCase();
-            const password = document.getElementById('auth-password-input').value;
-
-            if (authFormMode === 'register' && !name) {
-                showAuthError('Пожалуйста, укажите ваше имя.');
-                return;
-            }
-            if (!email || !email.includes('@')) {
-                showAuthError('Введите корректный Email.');
-                return;
-            }
-            if (!password || password.length < 6) {
-                showAuthError('Пароль должен содержать минимум 6 символов.');
-                return;
-            }
-
-            setAuthLoading(true);
-            try {
-                // Если облачная конфигурация отсутствует (например, при загрузке на GitHub без ключей), используем сессионный профиль
-                if (!auth || !db) {
-                    const accId = emailToAccountId(email);
-                    const passwordHash = await hashPassword(password);
-                    if (authFormMode === 'register') {
-                        if (memoryAccounts.has(accId)) {
-                            showAuthError('Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».');
-                            return;
-                        }
-                        memoryAccounts.set(accId, { email, name, passwordHash });
-                        enterAppWithProfile({ id: accId, name, email, mode: 'memory' });
-                        showToast(`Добро пожаловать, ${name}! (Сессионный режим)`, 'success');
+        async function initPrivateStorage() {
+            if (auth && db) {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                        currentUser = cred.user;
                     } else {
-                        const acc = memoryAccounts.get(accId);
-                        if (!acc || acc.passwordHash !== passwordHash) {
-                            showAuthError('Неверный Email или пароль (в сессионном режиме данные сбрасываются после обновления страницы).');
-                            return;
-                        }
-                        enterAppWithProfile({ id: accId, name: acc.name, email, mode: 'memory' });
-                        showToast(`С возвращением, ${acc.name}!`, 'success');
+                        const cred = await signInAnonymously(auth);
+                        currentUser = cred.user;
                     }
-                    document.getElementById('auth-password-input').value = '';
-                    return;
-                }
 
-                if (authFormMode === 'register') {
-                    try {
-                        // Сначала пробуем стандартную регистрацию по Email/Password (для GitHub Pages / собственного проекта)
-                        const cred = await createUserWithEmailAndPassword(auth, email, password);
-                        await updateProfile(cred.user, { displayName: name });
-                        enterAppWithProfile({
-                            id: cred.user.uid,
-                            name,
-                            email,
-                            mode: 'firebase'
+                    if (!currentUser) return;
+
+                    if (unsubscribeExams) unsubscribeExams();
+                    const colRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'exams');
+                    unsubscribeExams = onSnapshot(colRef, (snapshot) => {
+                        const loaded = [];
+                        snapshot.forEach(docSnap => {
+                            loaded.push(migrateExamItem({ id: docSnap.id, ...docSnap.data() }));
                         });
-                        showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
-                    } catch (fbErr) {
-                        if (fbErr.code === 'auth/operation-not-allowed') {
-                            const baseUser = await ensureBaseAuth();
-                            if (!baseUser) throw fbErr;
-                            const accId = emailToAccountId(email);
-                            const accRef = doc(db, 'artifacts', appId, 'public', 'data', 'exam_accounts', accId);
-                            const existing = await getDoc(accRef);
-                            if (existing.exists()) {
-                                showAuthError('Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».');
-                                return;
-                            }
-                            const passwordHash = await hashPassword(password);
-                            await setDoc(accRef, {
-                                email,
-                                name,
-                                passwordHash,
-                                createdAt: new Date().toISOString()
-                            });
-                            enterAppWithProfile({
-                                id: accId,
-                                name,
-                                email,
-                                mode: 'cloud_profile'
-                            });
-                            showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
-                        } else {
-                            throw fbErr;
+                        exams = loaded;
+                        render();
+
+                        const mocksModal = document.getElementById('mocks-modal');
+                        if (!mocksModal.classList.contains('hidden')) {
+                            const openExamId = document.getElementById('mocks-exam-id').value;
+                            const openExam = exams.find(e => e.id === openExamId);
+                            if (openExam) renderMocksModalContent(openExam);
                         }
-                    }
-                } else {
-                    try {
-                        // Сначала пробуем стандартный вход по Email/Password
-                        const cred = await signInWithEmailAndPassword(auth, email, password);
-                        const userName = cred.user.displayName || email.split('@')[0];
-                        enterAppWithProfile({
-                            id: cred.user.uid,
-                            name: userName,
-                            email,
-                            mode: 'firebase'
-                        });
-                        showToast(`С возвращением, ${userName}!`, 'success');
-                    } catch (fbErr) {
-                        if (fbErr.code === 'auth/operation-not-allowed') {
-                            const baseUser = await ensureBaseAuth();
-                            if (!baseUser) throw fbErr;
-                            const accId = emailToAccountId(email);
-                            const accRef = doc(db, 'artifacts', appId, 'public', 'data', 'exam_accounts', accId);
-                            const snap = await getDoc(accRef);
-                            if (!snap.exists()) {
-                                showAuthError('Неверный Email или пароль.');
-                                return;
-                            }
-                            const data = snap.data();
-                            const passwordHash = await hashPassword(password);
-                            if (data.passwordHash !== passwordHash) {
-                                showAuthError('Неверный Email или пароль.');
-                                return;
-                            }
-                            enterAppWithProfile({
-                                id: accId,
-                                name: data.name || email.split('@')[0],
-                                email,
-                                mode: 'cloud_profile'
-                            });
-                            showToast(`С возвращением, ${data.name || email}!`, 'success');
-                        } else {
-                            throw fbErr;
-                        }
-                    }
-                }
-                document.getElementById('auth-password-input').value = '';
-            } catch (err) {
-                console.error('Auth error:', err);
-                showAuthError(mapAuthError(err));
-            } finally {
-                setAuthLoading(false);
-            }
-        });
-
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            openConfirmModal(
-                'Выйти из аккаунта?',
-                'Вы вернетесь на экран входа и сможете войти в другой профиль.',
-                async () => {
-                    if (unsubscribeExams) {
-                        unsubscribeExams();
-                        unsubscribeExams = null;
-                    }
-                    activeProfile = null;
-                    exams = [];
-                    render();
-
-                    document.getElementById('app-main').classList.add('hidden');
-                    const profileBar = document.getElementById('user-profile-bar');
-                    profileBar.classList.add('hidden');
-                    profileBar.classList.remove('flex');
-                    document.getElementById('auth-screen').classList.remove('hidden');
-
-                    if (auth) {
-                        try {
-                            await signOut(auth);
-                        } catch (e) {
-                            console.error('Ошибка при выходе:', e);
-                        }
-                    }
-                    showToast('Вы вышли из аккаунта');
-                }
-            );
-        });
-
-        async function bootstrapAuth() {
-            if (!auth) {
-                const notice = document.getElementById('offline-host-notice');
-                if (notice) notice.classList.remove('hidden');
-                return;
-            }
-            try {
-                if (auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.email) {
-                    enterAppWithProfile({
-                        id: auth.currentUser.uid,
-                        name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
-                        email: auth.currentUser.email,
-                        mode: 'firebase'
+                    }, (error) => {
+                        console.error('Ошибка загрузки данных:', error);
                     });
                     return;
+                } catch (err) {
+                    console.error('Переключаемся на локальное хранилище устройства:', err);
                 }
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await ensureBaseAuth();
-                }
-            } catch (err) {
-                console.error('Ошибка инициализации сессии:', err);
             }
-        }
 
-        document.getElementById('open-github-guide-btn')?.addEventListener('click', () => {
-            const modal = document.getElementById('github-guide-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        });
-                        showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
-                    } catch (fbErr) {
-                        if (fbErr.code === 'auth/operation-not-allowed') {
-                            const accId = emailToAccountId(email);
-                            const accRef = doc(db, 'artifacts', appId, 'public', 'data', 'exam_accounts', accId);
-                            const existing = await getDoc(accRef);
-                            if (existing.exists()) {
-                                showAuthError('Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».');
-                                return;
-                            }
-                            const passwordHash = await hashPassword(password);
-                            await setDoc(accRef, {
-                                email,
-                                name,
-                                passwordHash,
-                                createdAt: new Date().toISOString()
-                            });
-                            enterAppWithProfile({
-                                id: accId,
-                                name,
-                                email,
-                                mode: 'cloud_profile'
-                            });
-                            showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
-                        } else {
-                            throw fbErr;
-                        }
-                    }
-                } else {
-                    try {
-                        const cred = await signInWithEmailAndPassword(auth, email, password);
-                        const userName = cred.user.displayName || email.split('@')[0];
-                        enterAppWithProfile({
-                            id: cred.user.uid,
-                            name: userName,
-                            email,
-                            mode: 'firebase'
-                        });
-                        showToast(`С возвращением, ${userName}!`, 'success');
-                    } catch (fbErr) {
-                        if (fbErr.code === 'auth/operation-not-allowed') {
-                            const accId = emailToAccountId(email);
-                            const accRef = doc(db, 'artifacts', appId, 'public', 'data', 'exam_accounts', accId);
-                            const snap = await getDoc(accRef);
-                            if (!snap.exists()) {
-                                showAuthError('Неверный Email или пароль.');
-                                return;
-                            }
-                            const data = snap.data();
-                            const passwordHash = await hashPassword(password);
-                            if (data.passwordHash !== passwordHash) {
-                                showAuthError('Неверный Email или пароль.');
-                                return;
-                            }
-                            enterAppWithProfile({
-                                id: accId,
-                                name: data.name || email.split('@')[0],
-                                email,
-                                mode: 'cloud_profile'
-                            });
-                            showToast(`С возвращением, ${data.name || email}!`, 'success');
-                        } else {
-                            throw fbErr;
-                        }
-                    }
-                }
-                document.getElementById('auth-password-input').value = '';
-            } catch (err) {
-                console.error('Auth error:', err);
-                showAuthError(mapAuthError(err));
-            } finally {
-                setAuthLoading(false);
+            // Загрузка из приватной базы браузера текущего устройства (для GitHub Pages)
+            const stored = await DeviceDB.getAll();
+            if (Array.isArray(stored)) {
+                exams = migrateData(stored);
             }
-        });
-
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            openConfirmModal(
-                'Выйти из аккаунта?',
-                'Вы вернетесь на экран входа и сможете войти в другой профиль.',
-                async () => {
-                    if (unsubscribeExams) {
-                        unsubscribeExams();
-                        unsubscribeExams = null;
-                    }
-                    activeProfile = null;
-                    exams = [];
-                    render();
-
-                    document.getElementById('app-main').classList.add('hidden');
-                    const profileBar = document.getElementById('user-profile-bar');
-                    profileBar.classList.add('hidden');
-                    profileBar.classList.remove('flex');
-                    document.getElementById('auth-screen').classList.remove('hidden');
-
-                    if (auth) {
-                        try {
-                            await signOut(auth);
-                            await ensureBaseAuth();
-                        } catch (e) {
-                            console.error('Ошибка при выходе:', e);
-                        }
-                    }
-                    showToast('Вы вышли из аккаунта');
-                }
-            );
-        });
-
-        async function bootstrapAuth() {
-            if (!auth) return;
-            try {
-                if (auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.email) {
-                    enterAppWithProfile({
-                        id: auth.currentUser.uid,
-                        name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
-                        email: auth.currentUser.email,
-                        mode: 'firebase'
-                    });
-                    return;
-                }
-                await ensureBaseAuth();
-            } catch (err) {
-                console.error('Ошибка инициализации сессии:', err);
-            }
+            render();
         }
 
         // --- ТЕМНАЯ ТЕМА (DARK MODE) ---
@@ -1243,7 +701,7 @@
         }
 
         function closeAllModals() {
-            document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal, #github-guide-modal').forEach(m => {
+            document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal').forEach(m => {
                 m.classList.add('hidden');
                 m.classList.remove('flex');
             });
@@ -1260,7 +718,7 @@
         });
 
         // Закрытие модалок по клику на фон
-        document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal, #github-guide-modal').forEach(modal => {
+        document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeAllModals();
             });
@@ -2001,7 +1459,8 @@
 
         // Запуск приложения
         initTheme();
-        bootstrapAuth();
+        render();
+        initPrivateStorage();
     </script>
 </body>
 </html>
