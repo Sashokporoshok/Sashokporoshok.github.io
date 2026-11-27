@@ -135,6 +135,18 @@
                 </button>
             </div>
 
+            <!-- Уведомление при запуске на GitHub Pages без подключенной базы -->
+            <div id="offline-host-notice" class="hidden mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs leading-relaxed">
+                <div class="font-semibold flex items-center gap-1.5 mb-1">
+                    <i class="fa-solid fa-circle-info text-amber-500"></i>
+                    <span>Сессионный режим (база не подключена)</span>
+                </div>
+                <p>На GitHub Pages аккаунты сохраняются только до перезагрузки страницы, пока в коде не указаны ключи облачной базы.</p>
+                <button type="button" id="open-github-guide-btn" class="mt-1.5 inline-flex items-center gap-1 font-semibold underline hover:text-amber-950 dark:hover:text-white">
+                    Как подключить постоянную регистрацию на GitHub?
+                </button>
+            </div>
+
             <!-- Форма входа / регистрации -->
             <form id="auth-form" class="space-y-4" novalidate>
                 <div id="register-name-group" class="hidden">
@@ -424,6 +436,28 @@
         </div>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО: Инструкция по подключению базы для GitHub Pages -->
+    <div id="github-guide-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-gray-100 dark:border-slate-800 modal-animate">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base sm:text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-brands fa-github text-indigo-500"></i> Настройка регистрации на GitHub Pages
+                </h3>
+                <button class="close-modal text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 w-8 h-8 rounded-lg flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <ol class="space-y-3 text-xs sm:text-sm text-gray-600 dark:text-slate-300 list-decimal pl-5">
+                <li>Создайте бесплатный проект в <strong>Firebase Console</strong> и зарегистрируйте в нем веб-приложение (<code>&lt;/&gt;</code>), чтобы получить объект <code>firebaseConfig</code>.</li>
+                <li>В разделе <strong>Authentication → Sign-in method</strong> включите вход по <strong>Email/Password</strong>, а во вкладке <strong>Settings → Authorized domains</strong> добавьте ваш домен <code>ваш-ник.github.io</code>.</li>
+                <li>В разделе <strong>Firestore Database</strong> создайте базу данных и вставьте ваш <code>firebaseConfig</code> в переменную <code>CUSTOM_FIREBASE_CONFIG</code> в начале скрипта в файле <code>index.html</code>.</li>
+            </ol>
+            <div class="flex justify-end mt-6">
+                <button class="close-modal px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">Понятно</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Контейнер для всплывающих уведомлений (вместо alert) -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
 
@@ -448,9 +482,28 @@
             collection
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- НАСТРОЙКИ БАЗЫ ДАННЫХ ДЛЯ GITHUB PAGES / СВОЕГО ХОСТИНГА ---
+        // Чтобы регистрация и данные сохранялись после загрузки на GitHub, вставьте сюда firebaseConfig из вашей консоли:
+        const CUSTOM_FIREBASE_CONFIG = null;
+        /* Пример заполнения:
+        const CUSTOM_FIREBASE_CONFIG = {
+            apiKey: "AIzaSy...",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project",
+            storageBucket: "your-project.firebasestorage.app",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+        */
+
         // --- ИНИЦИАЛИЗАЦИЯ ОБЛАЧНОГО ХРАНИЛИЩА И АВТОРИЗАЦИИ ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const envFirebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config)
+            ? JSON.parse(__firebase_config)
+            : null;
+        const firebaseConfig = (CUSTOM_FIREBASE_CONFIG && CUSTOM_FIREBASE_CONFIG.apiKey)
+            ? CUSTOM_FIREBASE_CONFIG
+            : envFirebaseConfig;
 
         let app = null;
         let auth = null;
@@ -776,10 +829,14 @@
                 case 'auth/wrong-password':
                 case 'auth/invalid-credential':
                     return 'Неверный Email или пароль.';
+                case 'auth/unauthorized-domain':
+                    return 'Домен GitHub Pages не добавлен в Authorized domains в настройках авторизации.';
+                case 'auth/operation-not-allowed':
+                    return 'В настройках проекта не включен вход по Email/Password.';
                 case 'auth/too-many-requests':
                     return 'Слишком много неудачных попыток. Попробуйте позже.';
                 case 'permission-denied':
-                    return 'Нет доступа к базе данных. Проверьте подключение.';
+                    return 'Нет доступа к базе данных. Проверьте правила безопасности Firestore.';
                 default:
                     return err?.message ? `Ошибка: ${err.message}` : 'Ошибка авторизации. Проверьте данные и попробуйте снова.';
             }
@@ -823,7 +880,7 @@
 
             setAuthLoading(true);
             try {
-                // Если облачная конфигурация отсутствует, используем сессионный профиль
+                // Если облачная конфигурация отсутствует (например, при загрузке на GitHub без ключей), используем сессионный профиль
                 if (!auth || !db) {
                     const accId = emailToAccountId(email);
                     const passwordHash = await hashPassword(password);
@@ -834,11 +891,11 @@
                         }
                         memoryAccounts.set(accId, { email, name, passwordHash });
                         enterAppWithProfile({ id: accId, name, email, mode: 'memory' });
-                        showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
+                        showToast(`Добро пожаловать, ${name}! (Сессионный режим)`, 'success');
                     } else {
                         const acc = memoryAccounts.get(accId);
                         if (!acc || acc.passwordHash !== passwordHash) {
-                            showAuthError('Неверный Email или пароль.');
+                            showAuthError('Неверный Email или пароль (в сессионном режиме данные сбрасываются после обновления страницы).');
                             return;
                         }
                         enterAppWithProfile({ id: accId, name: acc.name, email, mode: 'memory' });
@@ -848,15 +905,9 @@
                     return;
                 }
 
-                // Гарантируем базовую авторизацию перед любыми запросами
-                const currentUser = await ensureBaseAuth();
-                if (!currentUser) {
-                    showAuthError('Не удалось установить соединение с сервером авторизации.');
-                    return;
-                }
-
                 if (authFormMode === 'register') {
                     try {
+                        // Сначала пробуем стандартную регистрацию по Email/Password (для GitHub Pages / собственного проекта)
                         const cred = await createUserWithEmailAndPassword(auth, email, password);
                         await updateProfile(cred.user, { displayName: name });
                         enterAppWithProfile({
@@ -865,6 +916,146 @@
                             email,
                             mode: 'firebase'
                         });
+                        showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
+                    } catch (fbErr) {
+                        if (fbErr.code === 'auth/operation-not-allowed') {
+                            const baseUser = await ensureBaseAuth();
+                            if (!baseUser) throw fbErr;
+                            const accId = emailToAccountId(email);
+                            const accRef = doc(db, 'artifacts', appId, 'public', 'data', 'exam_accounts', accId);
+                            const existing = await getDoc(accRef);
+                            if (existing.exists()) {
+                                showAuthError('Этот Email уже зарегистрирован. Переключитесь на вкладку «Вход».');
+                                return;
+                            }
+                            const passwordHash = await hashPassword(password);
+                            await setDoc(accRef, {
+                                email,
+                                name,
+                                passwordHash,
+                                createdAt: new Date().toISOString()
+                            });
+                            enterAppWithProfile({
+                                id: accId,
+                                name,
+                                email,
+                                mode: 'cloud_profile'
+                            });
+                            showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
+                        } else {
+                            throw fbErr;
+                        }
+                    }
+                } else {
+                    try {
+                        // Сначала пробуем стандартный вход по Email/Password
+                        const cred = await signInWithEmailAndPassword(auth, email, password);
+                        const userName = cred.user.displayName || email.split('@')[0];
+                        enterAppWithProfile({
+                            id: cred.user.uid,
+                            name: userName,
+                            email,
+                            mode: 'firebase'
+                        });
+                        showToast(`С возвращением, ${userName}!`, 'success');
+                    } catch (fbErr) {
+                        if (fbErr.code === 'auth/operation-not-allowed') {
+                            const baseUser = await ensureBaseAuth();
+                            if (!baseUser) throw fbErr;
+                            const accId = emailToAccountId(email);
+                            const accRef = doc(db, 'artifacts', appId, 'public', 'data', 'exam_accounts', accId);
+                            const snap = await getDoc(accRef);
+                            if (!snap.exists()) {
+                                showAuthError('Неверный Email или пароль.');
+                                return;
+                            }
+                            const data = snap.data();
+                            const passwordHash = await hashPassword(password);
+                            if (data.passwordHash !== passwordHash) {
+                                showAuthError('Неверный Email или пароль.');
+                                return;
+                            }
+                            enterAppWithProfile({
+                                id: accId,
+                                name: data.name || email.split('@')[0],
+                                email,
+                                mode: 'cloud_profile'
+                            });
+                            showToast(`С возвращением, ${data.name || email}!`, 'success');
+                        } else {
+                            throw fbErr;
+                        }
+                    }
+                }
+                document.getElementById('auth-password-input').value = '';
+            } catch (err) {
+                console.error('Auth error:', err);
+                showAuthError(mapAuthError(err));
+            } finally {
+                setAuthLoading(false);
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            openConfirmModal(
+                'Выйти из аккаунта?',
+                'Вы вернетесь на экран входа и сможете войти в другой профиль.',
+                async () => {
+                    if (unsubscribeExams) {
+                        unsubscribeExams();
+                        unsubscribeExams = null;
+                    }
+                    activeProfile = null;
+                    exams = [];
+                    render();
+
+                    document.getElementById('app-main').classList.add('hidden');
+                    const profileBar = document.getElementById('user-profile-bar');
+                    profileBar.classList.add('hidden');
+                    profileBar.classList.remove('flex');
+                    document.getElementById('auth-screen').classList.remove('hidden');
+
+                    if (auth) {
+                        try {
+                            await signOut(auth);
+                        } catch (e) {
+                            console.error('Ошибка при выходе:', e);
+                        }
+                    }
+                    showToast('Вы вышли из аккаунта');
+                }
+            );
+        });
+
+        async function bootstrapAuth() {
+            if (!auth) {
+                const notice = document.getElementById('offline-host-notice');
+                if (notice) notice.classList.remove('hidden');
+                return;
+            }
+            try {
+                if (auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.email) {
+                    enterAppWithProfile({
+                        id: auth.currentUser.uid,
+                        name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
+                        email: auth.currentUser.email,
+                        mode: 'firebase'
+                    });
+                    return;
+                }
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await ensureBaseAuth();
+                }
+            } catch (err) {
+                console.error('Ошибка инициализации сессии:', err);
+            }
+        }
+
+        document.getElementById('open-github-guide-btn')?.addEventListener('click', () => {
+            const modal = document.getElementById('github-guide-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
                         showToast(`Добро пожаловать, ${name}! Аккаунт создан.`, 'success');
                     } catch (fbErr) {
                         if (fbErr.code === 'auth/operation-not-allowed') {
@@ -1052,7 +1243,7 @@
         }
 
         function closeAllModals() {
-            document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal').forEach(m => {
+            document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal, #github-guide-modal').forEach(m => {
                 m.classList.add('hidden');
                 m.classList.remove('flex');
             });
@@ -1069,7 +1260,7 @@
         });
 
         // Закрытие модалок по клику на фон
-        document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal').forEach(modal => {
+        document.querySelectorAll('#edit-exam-modal, #edit-task-modal, #mocks-modal, #confirm-modal, #github-guide-modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeAllModals();
             });
